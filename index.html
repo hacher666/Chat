@@ -3,107 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fancy P2P Chat</title>
+    <title>Vibe Chat Live</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-            height: 100vh; display: flex; justify-content: center; align-items: center;
-        }
+        body { font-family: 'Segoe UI', sans-serif; background: #0b141a; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        #main-container { width: 100%; max-width: 450px; height: 95vh; background: #111b21; border-radius: 15px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 5px 20px rgba(0,0,0,0.5); border: 1px solid #222e35; }
+        
+        /* Login */
+        #login-box { padding: 40px; text-align: center; color: #e9edef; margin: auto; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; background: #2a3942; color: white; outline: none; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; background: #00a884; color: white; font-weight: bold; cursor: pointer; }
 
-        /* Glassmorphism Design */
-        #main-container {
-            width: 100%; max-width: 450px; height: 90vh;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(15px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 20px; display: flex; flex-direction: column;
-            overflow: hidden; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
-        }
-
-        /* Login Screen */
-        #login-box { padding: 40px; text-align: center; color: white; margin: auto; }
-        #login-box h2 { margin-bottom: 20px; letter-spacing: 2px; }
-        input[type="text"] {
-            width: 100%; padding: 12px; margin: 10px 0;
-            border-radius: 10px; border: none; background: rgba(255,255,255,0.9);
-            font-size: 16px; outline: none;
-        }
-        .btn-join {
-            width: 100%; padding: 12px; border: none; border-radius: 10px;
-            background: #00d2ff; color: white; font-weight: bold;
-            cursor: pointer; transition: 0.3s; font-size: 16px;
-        }
-        .btn-join:hover { background: #3a7bd5; transform: scale(1.02); }
-
-        /* Chat Screen */
+        /* Chat UI */
         #chat-box { display: none; flex-direction: column; height: 100%; }
-        .chat-header { 
-            padding: 15px; background: rgba(0, 0, 0, 0.3); color: white;
-            display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-
-        #messages { 
-            flex-grow: 1; padding: 20px; overflow-y: auto;
-            display: flex; flex-direction: column; gap: 12px;
-            background: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); /* WhatsApp pattern */
-        }
-
-        .msg { 
-            max-width: 75%; padding: 10px 15px; border-radius: 15px; 
-            font-size: 14.5px; position: relative; line-height: 1.4;
-            color: #fff;
-        }
-        .msg.received { background: #3d3d5c; align-self: flex-start; border-bottom-left-radius: 2px; }
-        .msg.sent { background: #056162; align-self: flex-end; border-bottom-right-radius: 2px; }
-        .msg .sender-name { font-size: 10px; opacity: 0.7; display: block; margin-bottom: 4px; }
+        .header { padding: 15px; background: #202c33; color: #e9edef; display: flex; align-items: center; gap: 15px; }
+        #messages { flex-grow: 1; padding: 20px; overflow-y: auto; background: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); display: flex; flex-direction: column; gap: 8px; }
         
-        /* Input Area */
-        .input-area { 
-            padding: 15px; background: rgba(0,0,0,0.4); display: flex; gap: 10px; align-items: center;
-        }
-        #message-input { flex-grow: 1; border-radius: 25px; padding: 10px 15px; border: none; outline: none; }
-        .icon-btn { color: white; cursor: pointer; font-size: 20px; background: none; border: none; }
-        
-        /* Image Preview */
-        .msg img { max-width: 100%; border-radius: 10px; margin-top: 5px; cursor: pointer; }
+        .msg { max-width: 80%; padding: 8px 12px; border-radius: 8px; color: white; font-size: 15px; position: relative; }
+        .sent { background: #005c4b; align-self: flex-end; border-top-right-radius: 0; }
+        .received { background: #202c33; align-self: flex-start; border-top-left-radius: 0; }
+        .user-label { font-size: 11px; color: #ffd700; display: block; margin-bottom: 3px; font-weight: bold; }
 
-        /* Custom Scrollbar */
-        #messages::-webkit-scrollbar { width: 5px; }
-        #messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+        .input-area { padding: 10px; background: #202c33; display: flex; gap: 10px; align-items: center; }
+        #msg-input { flex-grow: 1; background: #2a3942; margin: 0; }
+        img { max-width: 200px; border-radius: 8px; margin-top: 5px; display: block; }
     </style>
 </head>
 <body>
 
 <div id="main-container">
     <div id="login-box">
-        <h2>VIBE CHAT</h2>
-        <p style="font-size: 12px; opacity: 0.6; margin-bottom: 20px;">Enter a Room Code to start private chatting</p>
-        <input type="text" id="username" placeholder="Your Name">
-        <input type="text" id="room-code" placeholder="Room Secret Code">
-        <button class="btn-join" onclick="startChat()">JOIN ROOM</button>
+        <h2>WhatsApp Clone</h2>
+        <input type="text" id="username" placeholder="Apna Naam">
+        <input type="text" id="room-code" placeholder="Room Code (Same code = Same Chat)">
+        <button onclick="initChat()">Join Chat</button>
     </div>
 
     <div id="chat-box">
-        <div class="chat-header">
-            <div>
-                <strong id="display-room">Room</strong>
-                <div style="font-size: 10px; color: #00ff88;">● Online</div>
-            </div>
-            <button class="icon-btn" onclick="location.reload()">✕</button>
+        <div class="header">
+            <div style="width: 40px; height: 40px; background: #6a7175; border-radius: 50%;"></div>
+            <div><strong id="room-name">Room</strong><br><small style="color: #00a884;">online</small></div>
         </div>
-
-        <div id="messages">
-            </div>
-
+        <div id="messages"></div>
         <div class="input-area">
-            <label for="file-input" class="icon-btn">📎</label>
-            <input type="file" id="file-input" hidden accept="image/*">
-            <input type="text" id="message-input" placeholder="Type a message...">
-            <button class="icon-btn" onclick="sendMessage()">➤</button>
+            <input type="file" id="file-input" hidden onchange="sendPhoto(this)">
+            <button style="width: auto; background: none; font-size: 20px;" onclick="document.getElementById('file-input').click()">📎</button>
+            <input type="text" id="msg-input" placeholder="Message likho...">
+            <button style="width: auto;" onclick="sendText()">➤</button>
         </div>
     </div>
 </div>
@@ -111,76 +58,74 @@
 <script>
     let peer, conn, myName, roomID;
 
-    function startChat() {
-        myName = document.getElementById('username').value.trim();
-        roomID = document.getElementById('room-code').value.trim();
+    function initChat() {
+        myName = document.getElementById('username').value;
+        roomID = document.getElementById('room-code').value;
 
-        if (!myName || !roomID) return alert("Details bharo pehle!");
+        if(!myName || !roomID) return alert("Details bharo!");
 
-        // Peer ID setup: 'RoomName-Username' logic for P2P discovery
-        // Note: Real-time discovery bina server ke PeerJS mein manually karni padti hai
-        peer = new Peer(myName + "-" + roomID);
+        // Peer ID format: RoomID_UserName
+        peer = new Peer(roomID + "-" + myName, {
+            debug: 2
+        });
 
         peer.on('open', (id) => {
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('chat-box').style.display = 'flex';
-            document.getElementById('display-room').innerText = "Room: " + roomID;
+            document.getElementById('room-name').innerText = "Room: " + roomID;
+            
+            // Dusre user ko connect karne ki koshish (Simple logic for 2 people)
+            // Note: P2P mein connection handle karna thoda tricky hota hai
+            alert("Ready! Agar dusra user bhi isi code se join karega toh chat hogi.");
         });
 
-        peer.on('connection', (c) => {
-            conn = c;
-            receiveData();
+        peer.on('connection', (connection) => {
+            conn = connection;
+            setupReceiver();
         });
-        
-        // Connect attempt to potential peer in the same room
-        // Yahan aapko manually connect karna pad sakta hai ya Firebase use karna hoga list ke liye
+
+        // Try connecting to a peer if they are already there
+        // (Isme hume pata hona chahiye ki dusra user kaun hai)
     }
 
-    function sendMessage() {
-        const input = document.getElementById('message-input');
-        const fileInput = document.getElementById('file-input');
-        
-        if (input.value.trim() === "" && fileInput.files.length === 0) return;
+    function sendText() {
+        let text = document.getElementById('msg-input').value;
+        if(!text) return;
+        let data = { user: myName, type: 'text', content: text };
+        renderMsg(data, true);
+        if(conn) conn.send(data);
+        document.getElementById('msg-input').value = "";
+    }
 
-        let dataObj = { user: myName, msg: input.value, type: 'text' };
-
-        if (fileInput.files.length > 0) {
-            const reader = new FileReader();
+    function sendPhoto(input) {
+        if (input.files && input.files[0]) {
+            let reader = new FileReader();
             reader.onload = function(e) {
-                dataObj.msg = e.target.result;
-                dataObj.type = 'image';
-                displayMessage(dataObj, true);
-                // conn.send(dataObj); // Jab connect ho jaye
+                let data = { user: myName, type: 'img', content: e.target.result };
+                renderMsg(data, true);
+                if(conn) conn.send(data);
             };
-            reader.readAsDataURL(fileInput.files[0]);
-        } else {
-            displayMessage(dataObj, true);
-            input.value = "";
+            reader.readAsDataURL(input.files[0]);
         }
     }
 
-    function displayMessage(data, isSelf) {
-        const chatWindow = document.getElementById('messages');
-        const msgDiv = document.createElement('div');
-        msgDiv.className = isSelf ? "msg sent" : "msg received";
-        
-        let content = type === 'text' ? data.msg : `<img src="${data.msg}">`;
-        
-        msgDiv.innerHTML = `
-            <span class="sender-name">${data.user}</span>
-            ${type === 'text' ? data.msg : `<img src="${data.msg}">`}
-        `;
-        
-        chatWindow.appendChild(msgDiv);
-        chatWindow.scrollTop = chatWindow.scrollHeight;
-    }
-
-    function receiveData() {
+    function setupReceiver() {
         conn.on('data', (data) => {
-            displayMessage(data, false);
+            renderMsg(data, false);
         });
     }
-</script>
 
+    function renderMsg(data, isMe) {
+        let div = document.createElement('div');
+        div.className = isMe ? "msg sent" : "msg received";
+        let inner = `<span class="user-label">${data.user}</span>`;
+        if(data.type === 'text') inner += data.content;
+        else inner += `<img src="${data.content}">`;
+        
+        div.innerHTML = inner;
+        document.getElementById('messages').appendChild(div);
+        document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+    }
+</script>
 </body>
 </html>
