@@ -3,43 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vibe Chat | Real-time</title>
+    <title>Vibe Chat | Live</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0b141a; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        #main-container { width: 100%; max-width: 450px; height: 95vh; background: #111b21; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 12px; border: 1px solid #222e35; }
         
-        #main-container { width: 100%; max-width: 450px; height: 95vh; background: #111b21; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #222e35; border-radius: 10px; }
+        /* Login */
+        #login-box { padding: 40px; text-align: center; color: white; margin: auto; width: 100%; }
+        #login-box h2 { color: #00a884; margin-bottom: 25px; font-size: 30px; letter-spacing: 1px; }
+        input { width: 100%; padding: 14px; margin: 10px 0; border-radius: 10px; border: none; background: #2a3942; color: white; font-size: 16px; outline: none; }
+        .btn-join { width: 100%; padding: 14px; border: none; border-radius: 10px; background: #00a884; color: white; font-weight: bold; cursor: pointer; font-size: 16px; }
 
-        /* Login Screen */
-        #login-box { padding: 40px; text-align: center; color: white; margin: auto; }
-        #login-box h2 { color: #00a884; margin-bottom: 20px; font-size: 28px; }
-        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; background: #2a3942; color: white; font-size: 16px; outline: none; }
-        .btn-join { width: 100%; padding: 12px; border: none; border-radius: 8px; background: #00a884; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        .btn-join:hover { background: #01755b; }
-
-        /* Chat Screen */
-        #chat-box { display: none; flex-direction: column; height: 100%; position: relative; }
-        .chat-header { padding: 12px 16px; background: #202c33; color: white; display: flex; align-items: center; gap: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-        .chat-header .avatar { width: 40px; height: 40px; background: #6a7175; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        /* Chat UI */
+        #chat-box { display: none; flex-direction: column; height: 100%; }
+        .chat-header { padding: 15px; background: #202c33; color: white; display: flex; align-items: center; gap: 12px; z-index: 10; }
+        .avatar { width: 40px; height: 40px; background: #00a884; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; }
         
-        #messages { flex-grow: 1; padding: 20px; overflow-y: auto; background: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-attachment: fixed; display: flex; flex-direction: column; gap: 10px; }
+        #messages { flex-grow: 1; padding: 15px; overflow-y: auto; background: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-attachment: fixed; display: flex; flex-direction: column; gap: 8px; }
 
-        /* Bubble Styles */
-        .msg { max-width: 80%; padding: 8px 12px; border-radius: 8px; font-size: 15px; position: relative; line-height: 1.4; color: #e9edef; word-wrap: break-word; }
+        .msg { max-width: 85%; padding: 8px 12px; border-radius: 10px; font-size: 15px; position: relative; color: #e9edef; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
         .sent { background: #005c4b; align-self: flex-end; border-top-right-radius: 0; }
         .received { background: #202c33; align-self: flex-start; border-top-left-radius: 0; }
-        .msg-info { font-size: 11px; display: block; margin-bottom: 4px; font-weight: bold; color: #ffd700; }
-        .msg img { max-width: 100%; border-radius: 8px; margin-top: 5px; display: block; border: 1px solid rgba(255,255,255,0.1); }
+        .msg-info { font-size: 10px; display: block; margin-bottom: 3px; font-weight: bold; color: #34b7f1; }
+        .msg img { max-width: 100%; border-radius: 8px; margin-top: 5px; display: block; }
 
-        /* Input Bar */
-        .input-bar { padding: 10px; background: #202c33; display: flex; align-items: center; gap: 10px; }
-        .input-bar input[type="text"] { flex-grow: 1; background: #2a3942; margin: 0; padding: 10px 15px; border-radius: 20px; }
-        .icon-btn { background: none; border: none; color: #8696a0; cursor: pointer; font-size: 22px; transition: 0.2s; }
-        .icon-btn:hover { color: #00a884; }
-
-        /* Scrollbar */
-        #messages::-webkit-scrollbar { width: 6px; }
-        #messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
+        .input-bar { padding: 10px; background: #202c33; display: flex; align-items: center; gap: 8px; }
+        #msg-input { flex-grow: 1; background: #2a3942; padding: 12px 18px; border-radius: 25px; margin: 0; }
+        .icon-btn { background: none; border: none; color: #8696a0; cursor: pointer; font-size: 24px; }
     </style>
 </head>
 <body>
@@ -47,34 +38,32 @@
 <div id="main-container">
     <div id="login-box">
         <h2>VIBE CHAT</h2>
-        <input type="text" id="username" placeholder="Apna Naam">
-        <input type="text" id="room-code" placeholder="Room Secret Code">
-        <button class="btn-join" id="loginBtn">JOIN CHAT</button>
+        <input type="text" id="username" placeholder="Apna Naam Likho">
+        <input type="text" id="room-code" placeholder="Enter Room Code">
+        <button class="btn-join" id="loginBtn">JOIN NOW</button>
     </div>
 
     <div id="chat-box">
         <div class="chat-header">
-            <div class="avatar" id="room-avatar">#</div>
+            <div class="avatar" id="room-avatar">?</div>
             <div>
                 <strong id="display-room">Room</strong><br>
-                <small style="color: #00a884; font-size: 11px;">Online & Encrypted</small>
+                <small style="color: #00a884;">online</small>
             </div>
         </div>
-
         <div id="messages"></div>
-
         <div class="input-bar">
             <label for="file-input" class="icon-btn">📎</label>
             <input type="file" id="file-input" hidden accept="image/*">
-            <input type="text" id="msg-input" placeholder="Message likho...">
-            <button class="icon-btn" id="sendBtn">➤</button>
+            <input type="text" id="msg-input" placeholder="Type a message...">
+            <button class="icon-btn" id="sendBtn" style="color: #00a884;">➤</button>
         </div>
     </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-    import { getDatabase, ref, push, onChildAdded, set } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
+    import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyD3HUZgZ1G2hN4BXnIbRV8eD0nPlWUaByM",
@@ -90,7 +79,6 @@
 
     let myName, roomID;
 
-    // Login Function
     document.getElementById('loginBtn').onclick = () => {
         myName = document.getElementById('username').value.trim();
         roomID = document.getElementById('room-code').value.trim();
@@ -98,79 +86,73 @@
         if (myName && roomID) {
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('chat-box').style.display = 'flex';
-            document.getElementById('display-room').innerText = roomID;
+            document.getElementById('display-room').innerText = "Room: " + roomID;
             document.getElementById('room-avatar').innerText = roomID[0].toUpperCase();
-            loadMessages();
+            
+            // Listen for existing and new messages in this specific room
+            const messagesRef = ref(db, 'chat_rooms/' + roomID);
+            onChildAdded(messagesRef, (snapshot) => {
+                const data = snapshot.val();
+                renderMessage(data);
+            });
         } else {
-            alert("Naam aur Code bharna zaroori hai!");
+            alert("Please enter Name and Room Code!");
         }
     };
 
-    // Send Text Message
-    document.getElementById('sendBtn').onclick = sendMessage;
-    document.getElementById('msg-input').onkeypress = (e) => { if(e.key === 'Enter') sendMessage(); };
-
     function sendMessage() {
         const input = document.getElementById('msg-input');
-        if (!input.value.trim()) return;
+        const text = input.value.trim();
+        if (!text) return;
 
-        const messagesRef = ref(db, 'rooms/' + roomID);
+        const messagesRef = ref(db, 'chat_rooms/' + roomID);
         push(messagesRef, {
             user: myName,
-            text: input.value,
+            content: text,
             type: 'text',
-            timestamp: Date.now()
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         });
         input.value = "";
     }
 
-    // Send Photo
+    document.getElementById('sendBtn').onclick = sendMessage;
+    document.getElementById('msg-input').onkeypress = (e) => { if(e.key === 'Enter') sendMessage(); };
+
     document.getElementById('file-input').onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
-
         const reader = new FileReader();
         reader.onload = (event) => {
-            const messagesRef = ref(db, 'rooms/' + roomID);
+            const messagesRef = ref(db, 'chat_rooms/' + roomID);
             push(messagesRef, {
                 user: myName,
-                text: event.target.result, // Base64 Photo
+                content: event.target.result,
                 type: 'image',
-                timestamp: Date.now()
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             });
         };
         reader.readAsDataURL(file);
     };
 
-    // Listen for Messages
-    function loadMessages() {
-        const messagesRef = ref(db, 'rooms/' + roomID);
-        onChildAdded(messagesRef, (data) => {
-            const msgData = data.val();
-            displayMessage(msgData);
-        });
-    }
-
-    function displayMessage(data) {
+    function renderMessage(data) {
         const container = document.getElementById('messages');
         const div = document.createElement('div');
         const isMe = data.user === myName;
         
         div.className = `msg ${isMe ? 'sent' : 'received'}`;
-        
-        let content = data.type === 'text' 
-            ? `<span>${data.text}</span>` 
-            : `<img src="${data.text}">`;
+        let htmlContent = data.type === 'text' 
+            ? `<span>${data.content}</span>` 
+            : `<img src="${data.content}">`;
 
         div.innerHTML = `
             <span class="msg-info">${isMe ? 'You' : data.user}</span>
-            ${content}
+            ${htmlContent}
+            <small style="display:block; text-align:right; font-size:9px; opacity:0.6; margin-top:4px;">${data.time}</small>
         `;
 
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
     }
 </script>
-
 </body>
 </html>
