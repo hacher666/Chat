@@ -1,10 +1,150 @@
-/* Resizeable Video */
-#video-container { 
-    resize: both; 
-    overflow: auto; 
-    min-width: 140px; min-height: 210px; 
-    /* ... existing styles ... */
-}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibe Chat | Advanced</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0b141a; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        #main-container { width: 100%; max-width: 450px; height: 95vh; background: #111b21; display: flex; flex-direction: column; overflow: hidden; border-radius: 12px; border: 1px solid #222e35; position: relative; }
+        
+        #login-box { padding: 40px; text-align: center; color: white; margin: auto; }
+        input { width: 100%; padding: 14px; margin: 10px 0; border-radius: 10px; border: none; background: #2a3942; color: white; }
+        .btn-join { width: 100%; padding: 14px; border: none; border-radius: 10px; background: #00a884; color: white; cursor: pointer; }
 
-/* Call Notification Modal */
-#call-modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #202c33; padding: 20px; border-radius: 15px; color: white; z-index: 2000; text-align: center; }
+        #chat-box { display: none; flex-direction: column; height: 100%; }
+        .chat-header { padding: 15px; background: #202c33; color: white; display: flex; align-items: center; justify-content: space-between; }
+        #messages { flex-grow: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        
+        .msg { max-width: 85%; padding: 8px 12px; border-radius: 10px; color: #e9edef; font-size: 15px; }
+        .sent { background: #005c4b; align-self: flex-end; }
+        .received { background: #202c33; align-self: flex-start; }
+        .tick { font-size: 10px; margin-left: 5px; color: #53bdeb; }
+
+        #video-container { display: none; position: absolute; top: 100px; right: 20px; width: 160px; height: 240px; background: #000; border-radius: 10px; z-index: 999; resize: both; overflow: auto; border: 2px solid #00a884; cursor: move; }
+        #remote-video { width: 100%; height: 100%; object-fit: cover; }
+        #local-video { width: 50px; height: 70px; position: absolute; bottom: 5px; right: 5px; border-radius: 4px; }
+
+        #call-modal { display: none; position: absolute; top: 30%; left: 10%; width: 80%; background: #202c33; padding: 20px; border-radius: 15px; color: white; text-align: center; z-index: 1000; border: 1px solid #00a884; }
+        .input-bar { padding: 10px; background: #202c33; display: flex; align-items: center; gap: 8px; }
+    </style>
+</head>
+<body>
+
+<div id="main-container">
+    <div id="login-box">
+        <h2>VIBE CHAT</h2>
+        <input type="text" id="username" placeholder="Enter Name">
+        <input type="text" id="room-code" placeholder="Enter Room Code">
+        <button class="btn-join" id="loginBtn">JOIN NOW</button>
+    </div>
+
+    <div id="chat-box">
+        <div class="chat-header">
+            <div><strong id="display-user">User</strong></div>
+            <button id="startCallBtn">📹 Call</button>
+        </div>
+        <div id="messages"></div>
+        
+        <div id="video-container">
+            <video id="remote-video" autoplay playsinline></video>
+            <video id="local-video" autoplay playsinline muted></video>
+            <button id="endCallBtn" style="position:absolute; top:0; left:0; background:red; color:white;">End</button>
+        </div>
+
+        <div id="call-modal">
+            <p id="caller-text">Incoming Call...</p>
+            <button id="acceptBtn" class="btn-join" style="background:green">Accept</button>
+            <button id="rejectBtn" class="btn-join" style="background:red">Reject</button>
+        </div>
+
+        <div class="input-bar">
+            <input type="text" id="msg-input" placeholder="Type or hold Mic...">
+            <button id="micBtn">🎤</button>
+            <button id="sendBtn">➤</button>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+    import { getDatabase, ref, push, onChildAdded, update, onValue, set } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
+
+    const firebaseConfig = { /* Apna config yahan rakhein */ };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    let myName, roomID, localStream, peerConnection;
+    let mediaRecorder, audioChunks = [];
+
+    document.getElementById('loginBtn').onclick = () => {
+        myName = document.getElementById('username').value;
+        roomID = document.getElementById('room-code').value;
+        document.getElementById('login-box').style.display = 'none';
+        document.getElementById('chat-box').style.display = 'flex';
+        document.getElementById('display-user').innerText = "User: " + myName;
+        
+        // Listen for Messages
+        onChildAdded(ref(db, 'chat_rooms/' + roomID), (snap) => {
+            const data = snap.val();
+            const div = document.createElement('div');
+            div.className = `msg ${data.user === myName ? 'sent' : 'received'}`;
+            div.innerHTML = data.type === 'audio' ? `<audio controls src="${data.content}"></audio>` : `<span>${data.content}</span>`;
+            if(data.user === myName && data.seen) div.innerHTML += `<span class="tick">✔️✔️</span>`;
+            document.getElementById('messages').appendChild(div);
+        });
+
+        // Listen for Incoming Calls
+        onValue(ref(db, `calls/${roomID}`), (snap) => {
+            const data = snap.val();
+            if (data && data.caller !== myName && !data.answered) {
+                document.getElementById('call-modal').style.display = 'block';
+                document.getElementById('caller-text').innerText = data.caller + " is calling...";
+            }
+        });
+    };
+
+    // Voice Recording
+    document.getElementById('micBtn').onmousedown = async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = () => {
+            const blob = new Blob(audioChunks);
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onloadend = () => {
+                push(ref(db, 'chat_rooms/' + roomID), { user: myName, content: reader.result, type: 'audio', seen: false });
+            };
+        };
+        mediaRecorder.start();
+    };
+    document.getElementById('micBtn').onmouseup = () => mediaRecorder.stop();
+
+    // Call Functions
+    document.getElementById('startCallBtn').onclick = () => {
+        set(ref(db, `calls/${roomID}`), { caller: myName, answered: false });
+        document.getElementById('video-container').style.display = 'block';
+    };
+
+    document.getElementById('acceptBtn').onclick = () => {
+        document.getElementById('call-modal').style.display = 'none';
+        document.getElementById('video-container').style.display = 'block';
+        update(ref(db, `calls/${roomID}`), { answered: true });
+    };
+
+    document.getElementById('endCallBtn').onclick = () => {
+        document.getElementById('video-container').style.display = 'none';
+        set(ref(db, `calls/${roomID}`), null);
+    };
+
+    document.getElementById('sendBtn').onclick = () => {
+        const text = document.getElementById('msg-input').value;
+        push(ref(db, 'chat_rooms/' + roomID), { user: myName, content: text, type: 'text', seen: false });
+        document.getElementById('msg-input').value = "";
+    };
+</script>
+</body>
+</html>
