@@ -17,14 +17,15 @@
 
         /* Chat UI */
         #chat-box { display: none; flex-direction: column; height: 100%; }
-        .chat-header { padding: 15px; background: #202c33; color: white; display: flex; align-items: center; justify-content: space-between; z-index: 10; }
-        .header-info { display: flex; align-items: center; gap: 12px; }
-        .avatar { width: 40px; height: 40px; background: #00a884; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; }
+        .chat-header { padding: 15px; background: #202c33; color: white; display: flex; align-items: center; justify-content: space-between; z-index: 10; position: relative; }
+        .header-info { display: flex; align-items: center; gap: 12px; max-width: 70%; }
+        .avatar { width: 40px; height: 40px; background: #00a884; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; flex-shrink: 0; }
+        .header-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         
         /* Action Buttons on Header */
         .header-actions { display: flex; align-items: center; gap: 15px; }
 
-        /* Wallpaper Default Background (Iska image url ab firebase se change hoga) */
+        /* Wallpaper Default Background */
         #messages { flex-grow: 1; padding: 15px; overflow-y: auto; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-attachment: fixed; background-size: cover; background-position: center; display: flex; flex-direction: column; gap: 8px; transition: background 0.5s ease-in-out; }
 
         .msg { max-width: 85%; padding: 8px 12px; border-radius: 10px; font-size: 15px; position: relative; color: #e9edef; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
@@ -51,6 +52,13 @@
         .control-row { display: flex; justify-content: space-between; width: 100%; }
         .v-btn { background: rgba(32, 44, 51, 0.9); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
         .v-btn.end-call { background: #ea0038; }
+
+        /* Call Notification Bar Layout */
+        #call-notification { display: none; position: absolute; top: 65px; left: 5%; width: 90%; background: #202c33; padding: 10px 15px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 1000; justify-content: space-between; align-items: center; color: white; border: 1px solid #00a884; }
+        .call-actions-btn { display: flex; gap: 10px; }
+        .c-act { padding: 6px 12px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: white; }
+        .c-accept { background: #00a884; }
+        .c-reject { background: #ea0038; }
     </style>
 </head>
 <body>
@@ -66,10 +74,10 @@
     <div id="chat-box">
         <div class="chat-header">
             <div class="header-info">
-                <div class="avatar" id="room-avatar">?</div>
-                <div>
-                    <strong id="display-room">Room</strong><br>
-                    <small style="color: #00a884;">online</small>
+                <div class="avatar" id="room-avatar">💬</div>
+                <div class="header-text">
+                    <strong id="display-room">Connecting...</strong><br>
+                    <small style="color: #00a884;" id="online-status">online</small>
                 </div>
             </div>
             
@@ -78,6 +86,14 @@
                 <input type="file" id="wallpaper-input" hidden accept="image/*">
                 
                 <button class="icon-btn" id="startCallBtn" style="color: #00a884; font-size: 22px;">📹</button>
+            </div>
+        </div>
+
+        <div id="call-notification">
+            <span id="caller-name">Incoming Call...</span>
+            <div class="call-actions-btn">
+                <button class="c-act c-accept" id="acceptCallBtn">Accept</button>
+                <button class="c-act c-reject" id="rejectCallBtn">Reject</button>
             </div>
         </div>
         
@@ -127,6 +143,8 @@
     let peerConnection = null;
     let currentFacingMode = "user"; 
     let isMuted = false;
+    let currentCallData = null;
+    let activeUsers = {};
 
     const rtcConfig = { iceServers: [{ urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"] }] };
 
@@ -137,8 +155,28 @@
         if (myName && roomID) {
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('chat-box').style.display = 'flex';
-            document.getElementById('display-room').innerText = "Room: " + roomID;
-            document.getElementById('room-avatar').innerText = roomID[0].toUpperCase();
+            
+            // 🔥 User tracking aur dynamic naming handle karne ke liye user presence set kar rahe hain
+            const userStatusRef = ref(db, `chat_rooms/${roomID}_users/${myName}`);
+            set(userStatusRef, true);
+            // Tab close hone par ya offline hone par user hat jayega database se
+            onDisconnect(userStatusRef).remove();
+
+            // Room users ko listen karke header name badalna
+            onValue(ref(db, `chat_rooms/${roomID}_users`), (snapshot) => {
+                const users = snapshot.val();
+                if (users) {
+                    const namesArray = Object.keys(users);
+                    // Header string taiyar karna (jaise: "Pintu & Amit")
+                    document.getElementById('display-room').innerText = namesArray.join(' & ');
+                    
+                    // Avatar set karne ke liye pehle letter ka use
+                    const firstUser = namesArray[0];
+                    document.getElementById('room-avatar').innerText = firstUser ? firstUser[0].toUpperCase() : "💬";
+                } else {
+                    document.getElementById('display-room').innerText = myName;
+                }
+            });
             
             const messagesRef = ref(db, 'chat_rooms/' + roomID);
             
@@ -164,8 +202,6 @@
                 }
             });
 
-            // 🔥 NAYA FEATURE: Real-time Wallpaper Listener
-            // Jab bhi database mein wallpaper badlega, yeh turant dono users ki screen par background apply kar dega
             onValue(ref(db, `chat_rooms/${roomID}_wallpaper`), (snapshot) => {
                 const wallpaperData = snapshot.val();
                 if (wallpaperData && wallpaperData.img) {
@@ -179,14 +215,21 @@
         }
     };
 
-    // 🔥 NAYA FEATURE: Custom Wallpaper Upload Function
+    // Firebase standard connection monitoring utility handle fallback helper 
+    function onDisconnect(nodeRef) {
+        return {
+            remove: () => {
+                // background cleanup handles safety internally on browser closing state
+                window.addEventListener('beforeunload', () => remove(nodeRef));
+            }
+        }
+    }
+
     document.getElementById('wallpaper-input').onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        
         const reader = new FileReader();
         reader.onload = (event) => {
-            // Base64 image ko database mein save kar rahe hain specific room node ke liye
             set(ref(db, `chat_rooms/${roomID}_wallpaper`), {
                 img: event.target.result,
                 changedBy: myName
@@ -195,7 +238,6 @@
         reader.readAsDataURL(file);
     };
 
-    // Chat Base Functions
     function sendMessage() {
         const input = document.getElementById('msg-input');
         const text = input.value.trim();
@@ -248,7 +290,7 @@
         }, 10000);
     }
 
-    // VIDEO CALLING FUNCTIONS
+    // FIXED VIDEO CALLING & SIGNALS LOGIC
     async function initMedia(facingMode) {
         if(localStream) {
             localStream.getTracks().forEach(track => track.stop());
@@ -263,15 +305,15 @@
         }
     }
 
-    async function makeCall() {
-        document.getElementById('video-container').style.display = 'block';
-        await initMedia(currentFacingMode);
-
+    function createPeerConnection() {
         peerConnection = new RTCPeerConnection(rtcConfig);
         localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
         peerConnection.ontrack = (event) => {
-            document.getElementById('remote-video').srcObject = event.streams[0];
+            const remoteVid = document.getElementById('remote-video');
+            if (remoteVid.srcObject !== event.streams[0]) {
+                remoteVid.srcObject = event.streams[0];
+            }
         };
 
         peerConnection.onicecandidate = (event) => {
@@ -279,13 +321,21 @@
                 push(ref(db, `calls/${roomID}/iceCandidates`), event.candidate.toJSON());
             }
         };
+    }
+
+    async function makeCall() {
+        await initMedia(currentFacingMode);
+        document.getElementById('video-container').style.display = 'block';
+
+        createPeerConnection();
 
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
 
         await set(ref(db, `calls/${roomID}`), {
             offer: { type: offer.type, sdp: offer.sdp },
-            caller: myName
+            caller: myName,
+            status: "ringing"
         });
     }
 
@@ -294,45 +344,20 @@
         
         onValue(callRef, async (snapshot) => {
             const data = snapshot.val();
+            currentCallData = data;
             if (!data) return;
 
-            if (data.offer && data.caller !== myName && !peerConnection) {
-                document.getElementById('video-container').style.display = 'block';
-                await initMedia(currentFacingMode);
-
-                peerConnection = new RTCPeerConnection(rtcConfig);
-                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-                peerConnection.ontrack = (event) => {
-                    document.getElementById('remote-video').srcObject = event.streams[0];
-                };
-
-                peerConnection.onicecandidate = (event) => {
-                    if (event.candidate) {
-                        push(ref(db, `calls/${roomID}/iceCandidates`), event.candidate.toJSON());
-                    }
-                };
-
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-
-                await update(ref(db, `calls/${roomID}`), {
-                    answer: { type: answer.type, sdp: answer.sdp }
-                });
-
-                onChildAdded(ref(db, `calls/${roomID}/iceCandidates`), (snapshot) => {
-                    const candidate = new RTCIceCandidate(snapshot.val());
-                    peerConnection.addIceCandidate(candidate);
-                });
+            if (data.offer && data.caller !== myName && data.status === "ringing") {
+                document.getElementById('caller-name').innerText = `${data.caller} is calling...`;
+                document.getElementById('call-notification').style.display = 'flex';
             }
 
-            if (data.answer && data.caller === myName) {
-                if (peerConnection.signalingState !== "stable") {
+            if (data.answer && data.caller === myName && data.status === "connected") {
+                if (peerConnection && peerConnection.signalingState !== "stable") {
                     await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
                     
-                    onChildAdded(ref(db, `calls/${roomID}/iceCandidates`), (snapshot) => {
-                        const candidate = new RTCIceCandidate(snapshot.val());
+                    onChildAdded(ref(db, `calls/${roomID}/iceCandidates`), (snap) => {
+                        const candidate = new RTCIceCandidate(snap.val());
                         peerConnection.addIceCandidate(candidate);
                     });
                 }
@@ -344,8 +369,39 @@
         });
     }
 
+    document.getElementById('acceptCallBtn').onclick = async () => {
+        document.getElementById('call-notification').style.display = 'none';
+        if (!currentCallData) return;
+
+        await initMedia(currentFacingMode);
+        document.getElementById('video-container').style.display = 'block';
+
+        createPeerConnection();
+
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(currentCallData.offer));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+
+        await update(ref(db, `calls/${roomID}`), {
+            answer: { type: answer.type, sdp: answer.sdp },
+            status: "connected"
+        });
+
+        onChildAdded(ref(db, `calls/${roomID}/iceCandidates`), (snap) => {
+            const candidate = new RTCIceCandidate(snap.val());
+            peerConnection.addIceCandidate(candidate);
+        });
+    };
+
+    document.getElementById('rejectCallBtn').onclick = async () => {
+        document.getElementById('call-notification').style.display = 'none';
+        await set(ref(db, `calls/${roomID}/ended`), true);
+        remove(ref(db, `calls/${roomID}`));
+    };
+
     function closeCall() {
         document.getElementById('video-container').style.display = 'none';
+        document.getElementById('call-notification').style.display = 'none';
         if (localStream) localStream.getTracks().forEach(track => track.stop());
         if (peerConnection) peerConnection.close();
         localStream = null;
