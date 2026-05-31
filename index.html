@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vibe Chat | Real WebRTC Fixed</title>
+    <title>Vibe Chat | Final Fixed WebRTC</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0b141a; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -244,10 +244,10 @@
                 }
             });
 
-            // Clean & Clear Signaling Observers Initialized
+            // Signaling Triggers Start
             listenForWebRTCSignals();
         } else {
-            alert("Please enter Name and Room Code!");
+            alert("Name and Room Code Required!");
         }
     };
 
@@ -341,14 +341,14 @@
         }, 10000);
     }
 
-    // 📹 WEBRTC SIGNAL CORE PIPELINE (FIXED STABLE)
+    // 📹 WEBRTC ENGINE PIPELINE
     async function initMediaStream() {
         if (!localStream) {
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode }, audio: true });
                 addCallVideoBox(myName, localStream, true);
             } catch (e) {
-                alert("Camera and Microphone access needed!");
+                alert("Camera and Mic permission required!");
             }
         }
     }
@@ -384,24 +384,26 @@
         const offer = await rtcPeerConnection.createOffer();
         await rtcPeerConnection.setLocalDescription(offer);
 
-        // Solid Sequence Setup: Pehle core paths fir status lock
+        // State changes directly write to database
         await set(ref(db, `webrtc_call/${roomID}/initiator`), myName);
         await set(ref(db, `webrtc_call/${roomID}/offer`), { type: offer.type, sdp: offer.sdp });
         await set(ref(db, `webrtc_call/${roomID}/status`), "calling");
     }
 
-    // CORE TRIGGER FIX: Direct Status Node listener to show header alert instantaneously
+    // CRITICAL CORE FIX: State tracking with fallback to prevent dead values on consecutive calls
     function listenForWebRTCSignals() {
         const statusRef = ref(db, `webrtc_call/${roomID}/status`);
 
         onValue(statusRef, (snapshot) => {
             const currentStatus = snapshot.val();
-            if (!currentStatus) {
+            
+            // Fixed hide trigger when status is idle or empty
+            if (!currentStatus || currentStatus === "idle" || currentStatus === "ended") {
                 document.getElementById('call-notification').style.display = 'none';
+                if(currentStatus === "ended") clearCallFrames();
                 return;
             }
 
-            // Target state check directly from dedicated isolated node path
             if (currentStatus === "calling") {
                 onValue(ref(db, `webrtc_call/${roomID}/initiator`), (initSnap) => {
                     const callSender = initSnap.val();
@@ -422,13 +424,8 @@
                     }
                 }, { onlyOnce: true });
             }
-
-            if (currentStatus === "ended") {
-                clearCallFrames();
-            }
         });
 
-        // ICE synchronization routing
         onChildAdded(ref(db, `webrtc_call/${roomID}/ice_candidates`), (snapshot) => {
             const data = snapshot.val();
             if (data && data.sender !== myName && rtcPeerConnection) {
@@ -479,9 +476,9 @@
         }, { onlyOnce: true });
     };
 
-    document.getElementById('rejectCallBtn').onclick = () => {
+    document.getElementById('rejectCallBtn').onclick = async () => {
         document.getElementById('call-notification').style.display = 'none';
-        remove(ref(db, `webrtc_call/${roomID}`));
+        await set(ref(db, `webrtc_call/${roomID}/status`), "idle");
     };
 
     function clearCallFrames() {
@@ -492,9 +489,12 @@
         document.getElementById('video-grid').innerHTML = "";
     }
 
-    function closeWebRTCCall() {
-        set(ref(db, `webrtc_call/${roomID}/status`), "ended");
-        setTimeout(() => { remove(ref(db, `webrtc_call/${roomID}`)); }, 1000);
+    async function closeWebRTCCall() {
+        // FIX: Remove karne ki jagah status node state ko "ended" bhejenge fir candidates clean karenge
+        await set(ref(db, `webrtc_call/${roomID}/status`), "ended");
+        await remove(ref(db, `webrtc_call/${roomID}/ice_candidates`));
+        await remove(ref(db, `webrtc_call/${roomID}/offer`));
+        await remove(ref(db, `webrtc_call/${roomID}/answer`));
         clearCallFrames();
     }
 
@@ -520,7 +520,7 @@
         }
     };
 
-    // FLOATING BOUNDARY DRAG MANAGER
+    // FLOATING DIV RESIZE HANDLER
     const videoCont = document.getElementById("video-container");
     let isDragging = false, currentX, currentY, initialX, initialY, xOffset = 0, yOffset = 0;
 
