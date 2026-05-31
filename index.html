@@ -169,58 +169,63 @@
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('chat-box').style.display = 'flex';
             
-            // Push Notification Permission Request
             if (Notification.permission !== "granted") {
                 Notification.requestPermission();
             }
 
-            // USER DISCONNECT AUTO-CLEANER (LEFT ENGINE)
+            // USER INACTIVE DISCONNECT ENGINE
             const userStatusRef = ref(db, `chat_rooms/${roomID}_users/${myName}`);
             set(userStatusRef, { online: true, pfp: "" });
             
             onDisconnect(userStatusRef).remove();
-            onDisconnect(ref(db, `webrtc_call/${roomID}`)).remove();
             
             window.addEventListener('beforeunload', () => {
-                closeWebRTCCall();
-                remove(userStatusRef);
+                handleExitCleanup();
             });
 
             setupVoiceMessageEngine();
 
-            // ACTIVE USER REFRESH TRACKER
+            // 🔥 MASTER USER MONITOR & AUTO ROOM REMOVER
             onValue(ref(db, `chat_rooms/${roomID}_users`), (snapshot) => {
                 const users = snapshot.val();
                 const container = document.getElementById('users-display-container');
                 container.innerHTML = ""; 
 
-                if (users) {
-                    Object.keys(users).forEach(userKey => {
-                        const userRow = document.createElement('div');
-                        userRow.className = 'user-row';
-                        const avatarDiv = document.createElement('div');
-                        avatarDiv.className = 'avatar';
-                        
-                        if(userKey === myName) {
-                            avatarDiv.onclick = () => document.getElementById('profile-input').click();
-                        }
-
-                        if (users[userKey] && users[userKey].pfp) {
-                            avatarDiv.style.backgroundImage = `url('${users[userKey].pfp}')`;
-                            avatarDiv.innerText = "";
-                        } else {
-                            avatarDiv.style.backgroundImage = "none";
-                            avatarDiv.innerText = userKey[0].toUpperCase();
-                        }
-
-                        const nameSpan = document.createElement('strong');
-                        nameSpan.innerText = userKey === myName ? `${userKey} (You)` : userKey;
-
-                        userRow.appendChild(avatarDiv);
-                        userRow.appendChild(nameSpan);
-                        container.appendChild(userRow);
-                    });
+                // Agar snapshot null hai ya users list khali ho chuki hai
+                if (!users || Object.keys(users).length === 0) {
+                    // Saara ka saara room kachra database se bilkul saaf (Remove Room)
+                    remove(ref(db, `chat_rooms/${roomID}`));
+                    remove(ref(db, `chat_rooms/${roomID}_wallpaper`));
+                    remove(ref(db, `webrtc_call/${roomID}`));
+                    return;
                 }
+
+                // Render Active Users List
+                Object.keys(users).forEach(userKey => {
+                    const userRow = document.createElement('div');
+                    userRow.className = 'user-row';
+                    const avatarDiv = document.createElement('div');
+                    avatarDiv.className = 'avatar';
+                    
+                    if(userKey === myName) {
+                        avatarDiv.onclick = () => document.getElementById('profile-input').click();
+                    }
+
+                    if (users[userKey] && users[userKey].pfp) {
+                        avatarDiv.style.backgroundImage = `url('${users[userKey].pfp}')`;
+                        avatarDiv.innerText = "";
+                    } else {
+                        avatarDiv.style.backgroundImage = "none";
+                        avatarDiv.innerText = userKey[0].toUpperCase();
+                    }
+
+                    const nameSpan = document.createElement('strong');
+                    nameSpan.innerText = userKey === myName ? `${userKey} (You)` : userKey;
+
+                    userRow.appendChild(avatarDiv);
+                    userRow.appendChild(nameSpan);
+                    container.appendChild(userRow);
+                });
             });
             
             const messagesRef = ref(db, 'chat_rooms/' + roomID);
@@ -230,7 +235,6 @@
                 if (data.user !== myName && !data.seen) {
                     update(ref(db, `chat_rooms/${roomID}/${msgID}`), { seen: true });
                     
-                    // 🔥 BACKGROUND BACKGROUND PUSH NOTIFICATION SYSTEM
                     if (document.hidden && Notification.permission === "granted") {
                         let notificationBody = "New Message Received";
                         if(data.type === 'text') notificationBody = data.content;
@@ -239,13 +243,11 @@
 
                         const options = {
                             body: notificationBody,
-                            icon: 'https://cdn-icons-png.flaticon.com/512/1041/1041916.png', // Default high-visibility chat icon
+                            icon: 'https://cdn-icons-png.flaticon.com/512/1041/1041916.png',
                             vibrate: [200, 100, 200],
                             tag: 'vibe-chat-alert',
                             renotify: true
                         };
-                        
-                        // Mobile Notification Bar Trigger with Sender Name
                         new Notification(`💬 ${data.user}`, options);
                     }
                 }
@@ -368,7 +370,7 @@
         }, 10000);
     }
 
-    // 📹 WEBRTC ENGINE PIPELINE
+    // 📹 WEBRTC PIPELINE
     async function initMediaStream() {
         if (!localStream) {
             try {
@@ -434,7 +436,6 @@
                 document.getElementById('caller-name').innerText = `📹 Incoming Call from: ${data.initiator}`;
                 document.getElementById('call-notification').style.display = 'flex';
                 
-                // Call notification bar support if tab is hidden
                 if (document.hidden && Notification.permission === "granted") {
                     new Notification("📹 Vibe Call Alert", { body: `Incoming video call from ${data.initiator}` });
                 }
@@ -518,6 +519,12 @@
         clearCallFrames();
     }
 
+    // CLEAN EXIT FUNCTION
+    function handleExitCleanup() {
+        closeWebRTCCall();
+        remove(ref(db, `chat_rooms/${roomID}_users/${myName}`));
+    }
+
     document.getElementById('startCallBtn').onclick = startWebRTCCall;
     document.getElementById('endCallBtn').onclick = closeWebRTCCall;
 
@@ -563,4 +570,12 @@
             e.preventDefault();
             let clientX = e.type === "touchmove" ? e.touches[0].clientX : e.clientX;
             let clientY = e.type === "touchmove" ? e.touches[0].clientY : e.clientY;
-            currentX = clientX -
+            currentX = clientX - initialX; currentY = clientY - initialY;
+            xOffset = currentX; yOffset = currentY;
+            videoCont.style.transform = `translate(${currentX}px, ${currentY}px)`;
+        }
+    }
+    function dragEnd() { isDragging = false; }
+</script>
+</body>
+</html>
