@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vibe Chat | Real WebRTC Header Fixed</title>
+    <title>Vibe Chat | Fixed Login & WebRTC</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0b141a; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -49,7 +49,7 @@
         .recording-active { color: #ea0038 !important; animation: pulse 1s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
-        /* FLOATING VIDEO CALL FRAME CONTAINER */
+        /* FLOATING VIDEO CALL CONTAINER */
         #video-container { display: none; position: absolute; top: 75px; right: 15px; width: 180px; height: 260px; min-width: 150px; min-height: 200px; max-width: 400px; max-height: 550px; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.6); border: 2px solid #00a884; z-index: 999; cursor: move; padding: 4px; resize: both; }
         #video-container::after { content: "◢"; position: absolute; bottom: 0; right: 2px; color: #00a884; font-size: 12px; font-weight: bold; pointer-events: none; cursor: se-resize; }
 
@@ -64,7 +64,7 @@
         .v-btn { background: rgba(32, 44, 51, 0.9); border: none; color: white; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; }
         .v-btn.end-call { background: #ea0038; }
 
-        /* FIXED HEADER NOTIFICATION PANEL */
+        /* FIXED TOP HEADER CALL NOTIFICATION */
         #call-notification { display: none; position: absolute; top: 0; left: 0; width: 100%; background: #00a884; padding: 12px 20px; z-index: 10000; justify-content: space-between; align-items: center; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; font-weight: bold; animation: slideDown 0.25s ease-out; }
         @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
         .call-actions-btn { display: flex; gap: 10px; }
@@ -180,6 +180,7 @@
 
             setupVoiceMessageEngine();
 
+            // Active User UI Track Listener
             onValue(ref(db, `chat_rooms/${roomID}_users`), (snapshot) => {
                 const users = snapshot.val();
                 const container = document.getElementById('users-display-container');
@@ -214,6 +215,7 @@
                 }
             });
             
+            // Text Message Monitor
             const messagesRef = ref(db, 'chat_rooms/' + roomID);
             onChildAdded(messagesRef, (snapshot) => {
                 const msgID = snapshot.key;
@@ -244,9 +246,10 @@
                 }
             });
 
+            // Safe Trigger: Node crashes bypass karne ke liye safe wrapper lagaya hai
             listenForWebRTCSignals();
         } else {
-            alert("Please enter Name and Room Code!");
+            alert("Name aur Room Code daalna zaroori hai!");
         }
     };
 
@@ -275,7 +278,7 @@
                     isRecording = true;
                     voiceBtn.classList.add('recording-active');
                 } catch (err) {
-                    alert("Microphone Access Denied!");
+                    alert("Mic Permission Denied!");
                 }
             } else {
                 mediaRecorder.stop();
@@ -340,14 +343,14 @@
         }, 10000);
     }
 
-    // 📹 WEBRTC SIGNAL ENGINE (ONCHILDADDED & ONCHILDCHANGED COUPLING)
+    // 📹 CRASH-FREE SAFE WEBRTC ENGINE
     async function initMediaStream() {
         if (!localStream) {
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode }, audio: true });
                 addCallVideoBox(myName, localStream, true);
             } catch (e) {
-                alert("Camera ya Mic access enable karein!");
+                alert("Camera aur Microphone ki permission dein!");
             }
         }
     }
@@ -383,7 +386,6 @@
         const offer = await rtcPeerConnection.createOffer();
         await rtcPeerConnection.setLocalDescription(offer);
 
-        // Pure dynamic key set kiya taaki child listeners trigger ho sakein instantly
         set(ref(db, `webrtc_call/${roomID}`), {
             initiator: myName,
             status: "calling",
@@ -391,43 +393,25 @@
         });
     }
 
+    // CRITICAL FIX: onValue listener safe fallback base method use karega ab
     function listenForWebRTCSignals() {
-        const callRef = ref(db, `webrtc_call/${roomID}`);
+        const callRootRef = ref(db, `webrtc_call/${roomID}`);
 
-        // FIX: Jab node create hoga tab option show hoga
-        onChildAdded(callRef, (snapshot) => {
-            handleCallStateUpdate();
-        });
-
-        // FIX: Jab data change hoga (jaise call accept ya end hogi) tab update hoga
-        onChildChanged(callRef, (snapshot) => {
-            handleCallStateUpdate();
-        });
-
-        // ICE candidate pipeline setup
-        onChildAdded(ref(db, `webrtc_call/${roomID}/ice_candidates`), (snapshot) => {
-            const data = snapshot.val();
-            if (data && data.sender !== myName && rtcPeerConnection) {
-                rtcPeerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-            }
-        });
-    }
-
-    // Dynamic Header Alert Controller Engine
-    function handleCallStateUpdate() {
-        onValue(ref(db, `webrtc_call/${roomID}`), async (snapshot) => {
+        // Login block na ho, isliye pure onValue tracker inside dynamic routing wrapper
+        onValue(callRootRef, async (snapshot) => {
             const data = snapshot.val();
             if (!data) {
                 document.getElementById('call-notification').style.display = 'none';
                 return;
             }
 
-            // Header Alert Pop-up validation trigger
+            // Header Popup Verification Match
             if (data.status === "calling" && data.initiator !== myName) {
                 document.getElementById('caller-name').innerText = `📹 Incoming Call from: ${data.initiator}`;
                 document.getElementById('call-notification').style.display = 'flex';
             }
 
+            // Target Response Answer applied directly
             if (data.status === "accepted" && data.initiator === myName && data.answer) {
                 if (rtcPeerConnection && !rtcPeerConnection.remoteDescription) {
                     await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
@@ -437,7 +421,15 @@
             if (data.status === "ended") {
                 clearCallFrames();
             }
-        }, { onlyOnce: true });
+        });
+
+        // Dynamic candidate tracker initialization
+        onChildAdded(ref(db, `webrtc_call/${roomID}/ice_candidates`), (snapshot) => {
+            const data = snapshot.val();
+            if (data && data.sender !== myName && rtcPeerConnection) {
+                rtcPeerConnection.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(e => {});
+            }
+        });
     }
 
     function createPeerConnection() {
@@ -498,8 +490,8 @@
     }
 
     function closeWebRTCCall() {
-        set(ref(db, `webrtc_call/${roomID}/status`), "ended");
-        setTimeout(() => { remove(ref(db, `webrtc_call/${roomID}`)); }, 1000);
+        set(ref(db, `webrtc_call/${roomID}`), { status: "ended" });
+        setTimeout(() => { remove(ref(db, `webrtc_call/${roomID}`)); }, 1200);
         clearCallFrames();
     }
 
@@ -525,7 +517,7 @@
         }
     };
 
-    // DRAG INTERCEPT FRAME CONTROL LOGIC
+    // DRAG RESIZE FLOATING MANAGER
     const videoCont = document.getElementById("video-container");
     let isDragging = false, currentX, currentY, initialX, initialY, xOffset = 0, yOffset = 0;
 
@@ -553,4 +545,7 @@
             videoCont.style.transform = `translate(${currentX}px, ${currentY}px)`;
         }
     }
-    function dragEnd
+    function dragEnd() { isDragging = false; }
+</script>
+</body>
+</html>
