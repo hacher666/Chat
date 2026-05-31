@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vibe Chat | Ultra Secure & Fixed Call</title>
+    <title>Vibe Chat | Ultra Secure & Voice Fixed Call</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0b141a; height: 100vh; display: flex; justify-content: center; align-items: center; -webkit-user-select: none; user-select: none; }
@@ -42,18 +42,22 @@
 
         .msg-info { font-size: 10px; display: block; margin-bottom: 3px; font-weight: bold; color: #34b7f1; }
         .msg img { max-width: 100%; border-radius: 8px; margin-top: 5px; display: block; }
+        .msg audio { max-width: 100%; margin-top: 5px; display: block; outline: none; }
+        
         .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 3px; font-size: 10px; opacity: 0.6; margin-top: 4px; }
         .tick { font-size: 12px; color: #8696a0; }
         .tick.seen { color: #34b7f1; }
 
-        .input-bar { padding: 10px; background: #202c33; display: flex; align-items: center; gap: 8px; }
+        .input-bar { padding: 10px; background: #202c33; display: flex; align-items: center; gap: 8px; position: relative; }
         #msg-input { flex-grow: 1; background: #2a3942; padding: 12px 18px; border-radius: 25px; margin: 0; }
-        .icon-btn { background: none; border: none; color: #8696a0; cursor: pointer; font-size: 24px; display: flex; align-items: center; }
-
-        /* 🔥 RESIZABLE FLOATING WINDOW SYSTEM */
-        #video-container { display: none; position: absolute; top: 75px; right: 15px; width: 180px; height: 260px; min-width: 150px; min-height: 200px; max-width: 400px; max-height: 550px; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.6); border: 2px solid #00a884; z-index: 999; cursor: move; padding: 4px; resize: both; }
+        .icon-btn { background: none; border: none; color: #8696a0; cursor: pointer; font-size: 24px; display: flex; align-items: center; transition: color 0.2s; }
         
-        /* Custom Resize Grip Indicator Element */
+        /* Voice Recording Status Active Pulse State */
+        .recording-active { color: #ea0038 !important; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        /* RESIZABLE FLOATING CALL SCREEN WINDOW SYSTEM */
+        #video-container { display: none; position: absolute; top: 75px; right: 15px; width: 180px; height: 260px; min-width: 150px; min-height: 200px; max-width: 400px; max-height: 550px; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.6); border: 2px solid #00a884; z-index: 999; cursor: move; padding: 4px; resize: both; }
         #video-container::after { content: "◢"; position: absolute; bottom: 0; right: 2px; color: #00a884; font-size: 12px; font-weight: bold; pointer-events: none; cursor: se-resize; }
 
         #video-grid { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; height: 100%; justify-content: center; align-items: center; overflow-y: auto; }
@@ -67,12 +71,13 @@
         .v-btn { background: rgba(32, 44, 51, 0.9); border: none; color: white; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; }
         .v-btn.end-call { background: #ea0038; }
 
-        /* Header Level Accept/Reject Banner Call Layout */
-        #call-notification { display: none; position: absolute; top: 65px; left: 5%; width: 90%; background: #202c33; padding: 10px 15px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 1000; justify-content: space-between; align-items: center; color: white; border: 1px solid #00a884; }
+        /* FIXED HEADER CALL ACCEPT/REJECT BANNER CSS LAYOUT */
+        #call-notification { display: none; position: absolute; top: 0; left: 0; width: 100%; background: #00a884; padding: 12px 20px; z-index: 9999; justify-content: space-between; align-items: center; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; font-weight: bold; animation: slideDown 0.3s ease-out; }
+        @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
         .call-actions-btn { display: flex; gap: 10px; }
-        .c-act { padding: 6px 12px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: white; }
-        .c-accept { background: #00a884; }
-        .c-reject { background: #ea0038; }
+        .c-act { padding: 8px 16px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .c-accept { background: #fff; color: #00a884; }
+        .c-reject { background: #ea0038; color: white; }
     </style>
 </head>
 <body>
@@ -86,6 +91,14 @@
     </div>
 
     <div id="chat-box">
+        <div id="call-notification">
+            <span id="caller-name">Incoming Call...</span>
+            <div class="call-actions-btn">
+                <button class="c-act c-accept" id="acceptCallBtn">Accept</button>
+                <button class="c-act c-reject" id="rejectCallBtn">Reject</button>
+            </div>
+        </div>
+
         <div class="chat-header">
             <div class="header-info">
                 <input type="file" id="profile-input" hidden accept="image/*">
@@ -99,14 +112,6 @@
                 <label for="wallpaper-input" class="icon-btn" style="color: #00a884; font-size: 20px; margin: 0;">🎨</label>
                 <input type="file" id="wallpaper-input" hidden accept="image/*">
                 <button class="icon-btn" id="startCallBtn" style="color: #00a884; font-size: 22px;">📹</button>
-            </div>
-        </div>
-
-        <div id="call-notification">
-            <span id="caller-name">Incoming Call...</span>
-            <div class="call-actions-btn">
-                <button class="c-act c-accept" id="acceptCallBtn">Accept</button>
-                <button class="c-act c-reject" id="rejectCallBtn">Reject</button>
             </div>
         </div>
         
@@ -128,7 +133,11 @@
         <div class="input-bar">
             <label for="file-input" class="icon-btn">📎</label>
             <input type="file" id="file-input" hidden accept="image/*">
+            
             <input type="text" id="msg-input" placeholder="Type a message...">
+            
+            <button class="icon-btn" id="voiceBtn" style="margin-right: 5px;">🎙️</button>
+            
             <button class="icon-btn" id="sendBtn" style="color: #00a884;">➤</button>
         </div>
     </div>
@@ -157,6 +166,11 @@
     let isMuted = false;
     let lastAlertTime = 0;
 
+    // Voice Message Audio Globals
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+
     const rtcConfig = { iceServers: [{ urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"] }] };
 
     document.getElementById('loginBtn').onclick = () => {
@@ -177,6 +191,7 @@
             });
 
             setupHardenedSecurity();
+            setupVoiceMessageEngine();
 
             onValue(ref(db, `chat_rooms/${roomID}_users`), (snapshot) => {
                 const users = snapshot.val();
@@ -286,6 +301,47 @@
         });
     }
 
+    // 🔥 HIGH FIDELITY VOICE MESSAGE ENGINE
+    function setupVoiceMessageEngine() {
+        const voiceBtn = document.getElementById('voiceBtn');
+        
+        voiceBtn.onclick = async () => {
+            if (!isRecording) {
+                // Recording Start Pipe
+                audioChunks = [];
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+                    
+                    mediaRecorder.onstop = () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            push(ref(db, 'chat_rooms/' + roomID), {
+                                user: myName, content: reader.result, type: 'audio', seen: false,
+                                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            });
+                        };
+                        reader.readAsDataURL(audioBlob);
+                        stream.getTracks().forEach(track => track.stop()); // Release mic resources
+                    };
+
+                    mediaRecorder.start();
+                    isRecording = true;
+                    voiceBtn.classList.add('recording-active');
+                } catch (err) {
+                    alert("Microphone Access Denied/Unavailable!");
+                }
+            } else {
+                // Recording Stop & Dispatch Pipeline
+                mediaRecorder.stop();
+                isRecording = false;
+                voiceBtn.classList.remove('recording-active');
+            }
+        };
+    }
+
     document.getElementById('profile-input').onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -345,7 +401,17 @@
 
         const isMe = data.user === myName;
         div.className = `msg ${isMe ? 'sent' : 'received'}`;
-        let htmlContent = data.type === 'text' ? `<span>${data.content}</span>` : `<img src="${data.content}">`;
+        
+        // Conditional Dynamic Media Renderer Matrix (Text, Image, Audio Voice)
+        let htmlContent = "";
+        if(data.type === 'text') {
+            htmlContent = `<span>${data.content}</span>`;
+        } else if(data.type === 'image') {
+            htmlContent = `<img src="${data.content}">`;
+        } else if(data.type === 'audio') {
+            htmlContent = `<audio src="${data.content}" controls></audio>`;
+        }
+
         let tickHtml = isMe ? `<span class="tick ${data.seen ? 'seen' : ''}">${data.seen ? '✔️✔️' : '✔️'}</span>` : '';
         div.innerHTML = `<span class="msg-info">${isMe ? 'You' : data.user}</span>${htmlContent}<div class="msg-meta"><span>${data.time}</span>${tickHtml}</div>`;
         container.appendChild(div);
@@ -361,7 +427,7 @@
         }, 10000);
     }
 
-    // 📹 RE-ENGINEERED TRUE MULTI-USER WEBRTC CALL ENGINE
+    // 📹 CRITICAL CALL MESH PLATFORM STACK (POLL-PROOF TIMESTAMPS)
     async function initMedia() {
         if (!localStream) {
             localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode }, audio: true });
@@ -394,23 +460,28 @@
     async function startGroupCall() {
         await initMedia();
         document.getElementById('video-container').style.display = 'block';
-        // Sabhi users ko header notification trigger push kiya
-        set(ref(db, `group_calls/${roomID}/call_state`), { initiator: myName, ts: Date.now() });
+        
+        // Deep Broadcast Node Override Setup (Absolute State)
+        set(ref(db, `group_calls/${roomID}/call_state`), { 
+            initiator: myName, 
+            status: "ringing",
+            token: Date.now() 
+        });
     }
 
     function listenForGroupCallSignals() {
-        // 1. Header Level Call Accept/Reject Broadcast System
+        // Absolute Core Header Trigger Broadcast Pipe Listener
         onValue(ref(db, `group_calls/${roomID}/call_state`), async (snapshot) => {
             const state = snapshot.val();
-            if (state && state.initiator !== myName) {
+            if (state && state.status === "ringing" && state.initiator !== myName) {
                 document.getElementById('caller-name').innerText = `📹 Incoming from ${state.initiator}...`;
                 document.getElementById('call-notification').style.display = 'flex';
-            } else if (!state) {
+            } else if (!state || state.status === "ended") {
                 document.getElementById('call-notification').style.display = 'none';
             }
         });
 
-        // 2. Mesh Routing Core Signals Engine
+        // Decentralized Multi-Node Signal Processing Engine
         onChildAdded(ref(db, `group_calls/${roomID}/signals/${myName}`), async (snapshot) => {
             const data = snapshot.val();
             const sender = snapshot.key;
@@ -433,7 +504,6 @@
             }
         });
 
-        // Kisi user ke left hone par grid update process
         onChildAdded(ref(db, `group_calls/${roomID}/leave`), (snapshot) => {
             const leftUser = snapshot.val();
             if (leftUser && leftUser !== myName) removeUserFromCall(leftUser);
@@ -446,7 +516,9 @@
         const pc = new RTCPeerConnection(rtcConfig);
         peerConnections[remoteUser] = pc;
 
-        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+        if (localStream) {
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+        }
 
         pc.ontrack = (event) => { addVideoBox(remoteUser, event.streams[0]); };
 
@@ -463,19 +535,18 @@
         }
     }
 
-    // Header Accept Handler Setup
     document.getElementById('acceptCallBtn').onclick = async () => {
         document.getElementById('call-notification').style.display = 'none';
         await initMedia();
         document.getElementById('video-container').style.display = 'block';
 
-        // Online maujood baaki sabhi accept karne wale users ke node par call sync bheja
+        // Fetch mesh target list instantly on accept click
         onValue(ref(db, `chat_rooms/${roomID}_users`), (snapshot) => {
             const users = snapshot.val();
             if(users) {
                 Object.keys(users).forEach(userKey => {
                     if (userKey !== myName) {
-                        setupPeerConnection(userKey, true); // Create offer routing channels Mesh
+                        setupPeerConnection(userKey, true); 
                     }
                 });
             }
@@ -499,8 +570,9 @@
         push(ref(db, `group_calls/${roomID}/leave`), myName);
         remove(ref(db, `group_calls/${roomID}/signals/${myName}`));
         
+        // Clean room metrics if channel is completely vacant
         onValue(ref(db, `group_calls/${roomID}/signals`), (snapshot) => {
-            if(!snapshot.exists()) { remove(ref(db, `group_calls/${roomID}/call_state`)); }
+            if(!snapshot.exists()) { set(ref(db, `group_calls/${roomID}/call_state`), { status: "ended" }); }
         }, { onlyOnce: true });
 
         if (localStream) { localStream.getTracks().forEach(track => track.stop()); localStream = null; }
@@ -531,7 +603,7 @@
         }
     };
 
-    // FLOATING CONTAINER DRAG HANDLING HANDLERS
+    // FLOATING CONTAINER DRAG & INTERCEPT PIPELINES
     const videoCont = document.getElementById("video-container");
     let isDragging = false, currentX, currentY, initialX, initialY, xOffset = 0, yOffset = 0;
 
@@ -543,7 +615,6 @@
     document.addEventListener("touchend", dragEnd);
 
     function dragStart(e) {
-        // Resize handle track area ya controls hone par drag cancel pipeline click skip control
         if (e.target.classList.contains('v-btn') || e.target.tagName === 'VIDEO' || (e.offsetX > videoCont.clientWidth - 15 && e.offsetY > videoCont.clientHeight - 15)) return; 
         let clientX = e.type === "touchstart" ? e.touches[0].clientX : e.clientX;
         let clientY = e.type === "touchstart" ? e.touches[0].clientY : e.clientY;
