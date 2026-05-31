@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vibe Chat | Live</title>
+    <title>Vibe Chat | Ultra Secure</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0b141a; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0b141a; height: 100vh; display: flex; justify-content: center; align-items: center; -webkit-user-select: none; user-select: none; }
         
-        /* 🔥 High Security: Screenshot context hide karne ke liye main block style */
-        #main-container { width: 100%; max-width: 450px; height: 95vh; background: #111b21; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 12px; border: 1px solid #222e35; position: relative; transition: filter 0.1s ease-in-out; }
+        #main-container { width: 100%; max-width: 450px; height: 95vh; background: #111b21; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 12px; border: 1px solid #222e35; position: relative; transition: filter 0.1s ease-in-out, opacity 0.1s ease-in-out; }
         
-        /* Jab user focus lose kare (Screenshot state) toh screen lock/blur style */
-        .secure-blur { filter: blur(25px) brightness(0.2) !important; pointer-events: none; }
+        /* 🔥 Multi-Layer Security States */
+        .secure-blur { filter: blur(40px) brightness(0.05) !important; pointer-events: none !important; }
+        .secure-hide { opacity: 0 !important; filter: brightness(0) !important; pointer-events: none !important; }
 
         /* Login */
         #login-box { padding: 40px; text-align: center; color: white; margin: auto; width: 100%; }
@@ -25,29 +25,25 @@
         .chat-header { padding: 15px; background: #202c33; color: white; display: flex; align-items: center; justify-content: space-between; z-index: 10; position: relative; }
         .header-info { display: flex; align-items: center; gap: 12px; max-width: 70%; }
         
-        /* Individual Users Display Header */
         #users-display-container { display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
         .user-row { display: flex; align-items: center; gap: 8px; font-size: 14px; }
         .avatar { width: 26px; height: 26px; background: #00a884; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; flex-shrink: 0; cursor: pointer; overflow: hidden; background-size: cover; background-position: center; border: 1px solid rgba(255,255,255,0.2); }
         .header-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; display: flex; flex-direction: column; }
         
-        /* Action Buttons on Header */
         .header-actions { display: flex; align-items: center; gap: 15px; }
 
-        /* Wallpaper Background */
-        #messages { flex-grow: 1; padding: 15px; overflow-y: auto; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-attachment: fixed; background-size: cover; background-position: center; display: flex; flex-direction: column; gap: 8px; transition: background 0.5s ease-in-out; }
+        #messages { flex-grow: 1; padding: 15px; overflow-y: auto; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-attachment: fixed; background-size: cover; background-position: center; display: flex; flex-direction: column; gap: 8px; }
 
         .msg { max-width: 85%; padding: 8px 12px; border-radius: 10px; font-size: 15px; position: relative; color: #e9edef; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
         .sent { background: #005c4b; align-self: flex-end; border-top-right-radius: 0; }
         .received { background: #202c33; align-self: flex-start; border-top-left-radius: 0; }
         
-        /* 🔥 Security System Alert Message Style */
-        .system-alert { background: #ea0038 !important; color: white !important; align-self: center !important; text-align: center; font-size: 13px !important; border-radius: 8px !important; font-weight: bold; width: 90%; border-top-left-radius: 8px !important; box-shadow: 0 0 10px rgba(234,0,56,0.4); animation: shake 0.3s ease-in-out; }
-        @keyframes shake { 0%, 100% {transform: translateX(0);} 25% {transform: translateX(-5px);} 75% {transform: translateX(5px);} }
+        /* High Visibility Security Alert Trigger CSS */
+        .system-alert { background: #ea0038 !important; color: white !important; align-self: center !important; text-align: center; font-size: 13px !important; border-radius: 8px !important; font-weight: bold; width: 90%; margin: 6px 0; box-shadow: 0 0 15px rgba(234,0,56,0.6); animation: shake 0.3s ease-in-out; }
+        @keyframes shake { 0%, 100% {transform: translateX(0);} 25% {transform: translateX(-6px);} 75% {transform: translateX(6px);} }
 
         .msg-info { font-size: 10px; display: block; margin-bottom: 3px; font-weight: bold; color: #34b7f1; }
         .msg img { max-width: 100%; border-radius: 8px; margin-top: 5px; display: block; }
-
         .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 3px; font-size: 10px; opacity: 0.6; margin-top: 4px; }
         .tick { font-size: 12px; color: #8696a0; }
         .tick.seen { color: #34b7f1; }
@@ -56,10 +52,8 @@
         #msg-input { flex-grow: 1; background: #2a3942; padding: 12px 18px; border-radius: 25px; margin: 0; }
         .icon-btn { background: none; border: none; color: #8696a0; cursor: pointer; font-size: 24px; display: flex; align-items: center; }
 
-        /* Floating Multi-User Container Style */
-        #video-container { display: none; position: absolute; top: 75px; right: 15px; width: 160px; height: 240px; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.6); border: 2px solid #00a884; z-index: 999; cursor: move; padding: 4px; transition: width 0.3s, height 0.3s; }
-        
-        /* Dynamic Grid Inside Floating Box */
+        /* Floating Window Multi-User Layout */
+        #video-container { display: none; position: absolute; top: 75px; right: 15px; width: 165px; height: 245px; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.6); border: 2px solid #00a884; z-index: 999; cursor: move; padding: 4px; }
         #video-grid { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; height: 100%; justify-content: center; align-items: center; }
         .video-box { position: relative; flex: 1 1 45%; min-width: 65px; height: 100%; background: #222; border-radius: 6px; overflow: hidden; }
         .video-box video { width: 100%; height: 100%; object-fit: cover; }
@@ -74,7 +68,7 @@
         .v-btn { background: rgba(32, 44, 51, 0.9); border: none; color: white; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; }
         .v-btn.end-call { background: #ea0038; }
 
-        /* Call Notification Bar Layout */
+        /* Floating Invitation Notification Layer */
         #call-notification { display: none; position: absolute; top: 65px; left: 5%; width: 90%; background: #202c33; padding: 10px 15px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 1000; justify-content: space-between; align-items: center; color: white; border: 1px solid #00a884; }
         .call-actions-btn { display: flex; gap: 10px; }
         .c-act { padding: 6px 12px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: white; }
@@ -85,7 +79,6 @@
 <body>
 
 <div id="main-container">
-    <!-- Login Screen -->
     <div id="login-box">
         <h2>VIBE CHAT</h2>
         <input type="text" id="username" placeholder="Apna Naam Likho">
@@ -93,7 +86,6 @@
         <button class="btn-join" id="loginBtn">JOIN NOW</button>
     </div>
 
-    <!-- Chat Window Screen -->
     <div id="chat-box">
         <div class="chat-header">
             <div class="header-info">
@@ -107,12 +99,10 @@
             <div class="header-actions">
                 <label for="wallpaper-input" class="icon-btn" style="color: #00a884; font-size: 20px; margin: 0;">🎨</label>
                 <input type="file" id="wallpaper-input" hidden accept="image/*">
-                
                 <button class="icon-btn" id="startCallBtn" style="color: #00a884; font-size: 22px;">📹</button>
             </div>
         </div>
 
-        <!-- Incoming Call Alert Overlay -->
         <div id="call-notification">
             <span id="caller-name">Incoming Call...</span>
             <div class="call-actions-btn">
@@ -123,16 +113,15 @@
         
         <div id="messages"></div>
 
-        <!-- Floating Multi-User Container -->
         <div id="video-container">
             <div id="video-grid"></div>
             <div class="video-controls">
                 <div class="control-row">
-                    <button class="v-btn" id="toggleCamBtn" title="Switch Camera">🔄</button>
-                    <button class="v-btn" id="muteMicBtn" title="Mute Mic">🎤</button>
+                    <button class="v-btn" id="toggleCamBtn">🔄</button>
+                    <button class="v-btn" id="muteMicBtn">🎤</button>
                 </div>
                 <div class="control-row" style="justify-content: center;">
-                    <button class="v-btn end-call" id="endCallBtn" title="End Call">📞</button>
+                    <button class="v-btn end-call" id="endCallBtn">📞</button>
                 </div>
             </div>
         </div>
@@ -148,7 +137,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-    import { getDatabase, ref, push, onChildAdded, onChildChanged, update, remove, onValue, set } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
+    import { getDatabase, ref, push, onChildAdded, onChildChanged, update, remove, onValue, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyD3HUZgZ1G2hN4BXnIbRV8eD0nPlWUaByM",
@@ -167,6 +156,7 @@
     let peerConnections = {}; 
     let currentFacingMode = "user"; 
     let isMuted = false;
+    let lastAlertTime = 0;
 
     const rtcConfig = { iceServers: [{ urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"] }] };
 
@@ -178,12 +168,17 @@
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('chat-box').style.display = 'flex';
             
-            const userStatusRef = ref(db, `chat_rooms/${roomID}_users/${myName}/online`);
-            set(userStatusRef, true);
+            // Tab close detection pipeline
+            const userStatusRef = ref(db, `chat_rooms/${roomID}_users/${myName}`);
+            set(ref(db, `chat_rooms/${roomID}_users/${myName}/online`), true);
             onDisconnect(userStatusRef).remove();
+            
+            window.addEventListener('beforeunload', () => {
+                push(ref(db, `group_calls/${roomID}/leave`), myName);
+                remove(userStatusRef);
+            });
 
-            // Setup security triggers for screenshots after login
-            setupScreenshotProtection();
+            setupHardenedSecurity();
 
             onValue(ref(db, `chat_rooms/${roomID}_users`), (snapshot) => {
                 const users = snapshot.val();
@@ -194,7 +189,6 @@
                     Object.keys(users).forEach(userKey => {
                         const userRow = document.createElement('div');
                         userRow.className = 'user-row';
-
                         const avatarDiv = document.createElement('div');
                         avatarDiv.className = 'avatar';
                         
@@ -217,13 +211,10 @@
                         userRow.appendChild(nameSpan);
                         container.appendChild(userRow);
                     });
-                } else {
-                    container.innerText = myName;
                 }
             });
             
             const messagesRef = ref(db, 'chat_rooms/' + roomID);
-            
             onChildAdded(messagesRef, (snapshot) => {
                 const msgID = snapshot.key;
                 const data = snapshot.val();
@@ -259,43 +250,58 @@
         }
     };
 
-    // 🔥 SCREENSHOT PROTECTION AND NOTIFICATION LOGIC
-    function setupScreenshotProtection() {
-        // 1. Mobile & Background Change Detection (Page ko black out blur karne ke liye)
+    // 🔥 HIGH-SECURITY ANTI-SCREENSHOT & 3-FINGER CAPTURE ENGINE
+    function setupHardenedSecurity() {
+        const container = document.getElementById("main-container");
+
+        const lockUI = () => {
+            container.classList.add("secure-blur");
+            triggerDatabaseAlert();
+        };
+        const unlockUI = () => setTimeout(() => container.classList.remove("secure-blur"), 800);
+
+        // 1. Mobile Multi-Touch (3 Finger Gesture Tracking)
+        document.addEventListener("touchstart", (e) => {
+            if (e.touches.length >= 3) { // 3 or more fingers on screen
+                container.classList.add("secure-hide"); // UI invisible fast out
+                triggerDatabaseAlert();
+            }
+        }, { passive: false });
+
+        document.addEventListener("touchend", () => {
+            setTimeout(() => container.classList.remove("secure-hide"), 1000);
+        });
+
+        // 2. Focus Loss & Background switching handlers
         document.addEventListener("visibilitychange", () => {
-            const container = document.getElementById("main-container");
-            if (document.hidden) {
-                container.classList.add("secure-blur");
-                sendScreenshotAlertSignal(); // Alert on database
-            } else {
-                setTimeout(() => container.classList.remove("secure-blur"), 600);
+            if (document.hidden) lockUI(); else unlockUI();
+        });
+        window.addEventListener("blur", lockUI);
+        window.addEventListener("focus", unlockUI);
+
+        // 3. Desktop Shortcuts & Clipboard clear
+        document.addEventListener("keyup", (e) => {
+            if (e.key === "PrintScreen" || e.keyCode === 44) {
+                navigator.clipboard.writeText("🚫 Content Protected!");
+                triggerDatabaseAlert();
             }
         });
-
-        window.addEventListener("blur", () => {
-            document.getElementById("main-container").classList.add("secure-blur");
-            sendScreenshotAlertSignal();
-        });
-
-        window.addEventListener("focus", () => {
-            setTimeout(() => document.getElementById("main-container").classList.remove("secure-blur"), 600);
-        });
-
-        // 2. PC Key Shortcuts Block & Trigger Alert (PrintScreen, Ctrl+P, Windows Key combinations)
         document.addEventListener("keydown", (e) => {
-            if (e.key === "PrintScreen" || (e.ctrlKey && e.key === "p") || (e.metaKey && e.shiftKey && e.key === "s")) {
+            if ((e.ctrlKey && e.key === "p") || (e.metaKey && e.shiftKey && e.key === "s") || (e.ctrlKey && e.key === "s")) {
                 e.preventDefault();
-                sendScreenshotAlertSignal();
-                alert("Security Alert: Screenshots or Printing is strictly prohibited!");
+                triggerDatabaseAlert();
             }
         });
     }
 
-    function sendScreenshotAlertSignal() {
-        if (!roomID || !myName) return;
+    function triggerDatabaseAlert() {
+        let now = Date.now();
+        if (now - lastAlertTime < 5000) return; // Spam prevention loop filter
+        lastAlertTime = now;
+
         push(ref(db, 'chat_rooms/' + roomID), {
             user: myName,
-            content: `⚠️ Warning: ${myName} ne screenshot lene ki koshish ki!`,
+            content: `🚫 Alert: ${myName} ne screenshot / 3-finger gesture ki koshish ki!`,
             type: 'alert',
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         });
@@ -310,10 +316,6 @@
         };
         reader.readAsDataURL(file);
     };
-
-    function onDisconnect(nodeRef) {
-        return { remove: () => { window.addEventListener('beforeunload', () => remove(nodeRef)); } }
-    }
 
     document.getElementById('wallpaper-input').onchange = (e) => {
         const file = e.target.files[0];
@@ -358,15 +360,12 @@
         const div = document.createElement('div');
         div.id = `msg-${msgID}`;
         
-        // Handle Security Alerts differently
         if(data.type === 'alert') {
             div.className = "msg system-alert";
             div.innerHTML = `<span>${data.content}</span>`;
             container.appendChild(div);
             container.scrollTop = container.scrollHeight;
-            
-            // System alerts automatically vanish after 8 seconds
-            setTimeout(() => div.remove(), 8000);
+            setTimeout(() => div.remove(), 7000); 
             return;
         }
 
@@ -391,7 +390,7 @@
         }, 10000);
     }
 
-    // FLOATING CONTAINER & RTC CONTROL LOGIC
+    // MULTI-USER CALL INTERFACES SETUP
     async function initMedia() {
         if (!localStream) {
             localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode }, audio: true });
@@ -423,17 +422,13 @@
 
         const totalUsers = grid.children.length;
         const container = document.getElementById('video-container');
-        if(totalUsers > 1) {
-            container.classList.add('multi-call');
-        } else {
-            container.classList.remove('multi-call');
-        }
+        if(totalUsers > 1) container.classList.add('multi-call');
+        else container.classList.remove('multi-call');
     }
 
     async function startGroupCall() {
         await initMedia();
         document.getElementById('video-container').style.display = 'block';
-        
         const signalRef = push(ref(db, `group_calls/${roomID}/signals`));
         set(signalRef, { type: "join-request", sender: myName });
     }
@@ -482,7 +477,9 @@
         const pc = new RTCPeerConnection(rtcConfig);
         peerConnections[remoteUser] = pc;
 
-        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+        if (localStream) {
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+        }
 
         pc.ontrack = (event) => {
             addVideoBox(remoteUser, event.streams[0]);
@@ -509,7 +506,6 @@
         document.getElementById('call-notification').style.display = 'none';
         await initMedia();
         document.getElementById('video-container').style.display = 'block';
-        
         push(ref(db, `group_calls/${roomID}/signals`), { type: "join-request", sender: myName });
     };
 
@@ -527,9 +523,7 @@
 
         const grid = document.getElementById('video-grid');
         const container = document.getElementById('video-container');
-        if(grid.children.length <= 1) {
-            container.classList.remove('multi-call');
-        }
+        if(grid.children.length <= 1) container.classList.remove('multi-call');
     }
 
     function closeAllCalls() {
@@ -577,7 +571,7 @@
         }
     };
 
-    // FLOATING STABLE DRAGGABLE HANDLER
+    // FLOATING CONTAINER DRAG PIPELINES
     const videoCont = document.getElementById("video-container");
     let isDragging = false, currentX, currentY, initialX, initialY, xOffset = 0, yOffset = 0;
 
