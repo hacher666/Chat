@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vibe Chat | Multi-User Call Fixed</title>
+    <title>Vibe Chat | Pure P2P Calling</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0b141a; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -53,10 +53,10 @@
         #video-container { display: none; position: absolute; top: 75px; right: 15px; width: 180px; height: 260px; min-width: 150px; min-height: 200px; max-width: 400px; max-height: 550px; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.6); border: 2px solid #00a884; z-index: 999; cursor: move; padding: 4px; resize: both; }
         #video-container::after { content: "◢"; position: absolute; bottom: 0; right: 2px; color: #00a884; font-size: 12px; font-weight: bold; pointer-events: none; cursor: se-resize; }
 
-        #video-grid { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; height: 100%; justify-content: center; align-items: center; overflow-y: auto; }
-        .video-box { position: relative; flex: 1 1 45%; min-width: 65px; height: 48%; background: #222; border-radius: 6px; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        #video-grid { display: flex; flex-direction: column; gap: 4px; width: 100%; height: 100%; }
+        .video-box { position: relative; width: 100%; height: 50%; background: #222; overflow: hidden; display: flex; justify-content: center; align-items: center; border-radius: 6px; }
         .video-box video { width: 100%; height: 100%; object-fit: cover; }
-        .video-label { position: absolute; bottom: 2px; left: 4px; background: rgba(0,0,0,0.6); color: white; font-size: 8px; padding: 1px 4px; border-radius: 3px; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .video-label { position: absolute; bottom: 4px; left: 6px; background: rgba(0,0,0,0.6); color: white; font-size: 10px; padding: 1px 5px; border-radius: 3px; }
         
         .video-controls { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 6px; opacity: 0; transition: opacity 0.3s; background: rgba(0,0,0,0.3); pointer-events: none; }
         #video-container:hover .video-controls { opacity: 1; }
@@ -64,11 +64,11 @@
         .v-btn { background: rgba(32, 44, 51, 0.9); border: none; color: white; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; }
         .v-btn.end-call { background: #ea0038; }
 
-        /* ABSOLUTE TOP HEADER CALL NOTIFICATION BAR */
-        #call-notification { display: none; position: absolute; top: 0; left: 0; width: 100%; background: #00a884; padding: 12px 20px; z-index: 10000; justify-content: space-between; align-items: center; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; font-weight: bold; animation: slideDown 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        /* HEADER CALL NOTIFICATION PANEL */
+        #call-notification { display: none; position: absolute; top: 0; left: 0; width: 100%; background: #00a884; padding: 12px 20px; z-index: 10000; justify-content: space-between; align-items: center; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; font-weight: bold; animation: slideDown 0.25s ease-out; }
         @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
         .call-actions-btn { display: flex; gap: 10px; }
-        .c-act { padding: 8px 16px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .c-act { padding: 8px 16px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
         .c-accept { background: #fff; color: #00a884; }
         .c-reject { background: #ea0038; color: white; }
     </style>
@@ -151,7 +151,7 @@
 
     let myName, roomID;
     let localStream = null;
-    let peerConnections = {}; 
+    let pc = null; // Strict single peer reference
     let currentFacingMode = "user"; 
     let isMuted = false;
 
@@ -174,7 +174,7 @@
             onDisconnect(userStatusRef).remove();
             
             window.addEventListener('beforeunload', () => {
-                closeAllCalls();
+                closeCall();
                 remove(userStatusRef);
             });
 
@@ -244,7 +244,7 @@
                 }
             });
 
-            listenForGroupCallSignals();
+            listenForP2PSignals();
         } else {
             alert("Please enter Name and Room Code!");
         }
@@ -284,22 +284,6 @@
             }
         };
     }
-
-    document.getElementById('profile-input').onchange = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => { update(ref(db, `chat_rooms/${roomID}_users/${myName}`), { pfp: event.target.result }); };
-        reader.readAsDataURL(file);
-    };
-
-    document.getElementById('wallpaper-input').onchange = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => { set(ref(db, `chat_rooms/${roomID}_wallpaper`), { img: event.target.result, changedBy: myName }); };
-        reader.readAsDataURL(file);
-    };
 
     function sendMessage() {
         const input = document.getElementById('msg-input');
@@ -356,14 +340,14 @@
         }, 10000);
     }
 
-    // 📹 RE-ENGINEERED PUSH SIGNAL ROUTING CALL ENGINE (FIXED)
+    // 📹 PURE 1-TO-1 PEER TO PEER SIGNALING PIPELINE (FIXED)
     async function initMedia() {
         if (!localStream) {
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode }, audio: true });
                 addVideoBox(myName, localStream, true);
             } catch (e) {
-                alert("Camera and Mic access are required for calls!");
+                alert("Camera/Mic Permission Required!");
             }
         }
     }
@@ -390,83 +374,94 @@
         grid.appendChild(box);
     }
 
-    async function startGroupCall() {
+    async function startP2PCall() {
         await initMedia();
         document.getElementById('video-container').style.display = 'block';
         
-        // `push()` trigger lagaya taaki har user ke device pe event har haal me child listen ho sake
-        push(ref(db, `group_calls/${roomID}/broadcast`), { 
-            initiator: myName, 
-            action: "incoming_call",
-            timestamp: Date.now() 
+        // Channel standard data set
+        set(ref(db, `p2p_call/${roomID}`), {
+            initiator: myName,
+            status: "ringing"
         });
     }
 
-    function listenForGroupCallSignals() {
-        // Child Added dynamic logic check jo header me alert trigger karega bina conflict ke
-        onChildAdded(ref(db, `group_calls/${roomID}/broadcast`), (snapshot) => {
+    function listenForP2PSignals() {
+        // Absolute Caller Header Logic Listener
+        onValue(ref(db, `p2p_call/${roomID}`), async (snapshot) => {
             const data = snapshot.val();
-            if (data && data.action === "incoming_call" && data.initiator !== myName) {
-                document.getElementById('caller-name').innerText = `📹 Incoming Call from: ${data.initiator}`;
+            if (!data) {
+                document.getElementById('call-notification').style.display = 'none';
+                return;
+            }
+
+            if (data.status === "ringing" && data.initiator !== myName) {
+                document.getElementById('caller-name').innerText = `📹 Call from: ${data.initiator}`;
                 document.getElementById('call-notification').style.display = 'flex';
             }
-            if (data && data.action === "ended") {
-                document.getElementById('call-notification').style.display = 'none';
+
+            if (data.status === "connected" && data.initiator === myName) {
+                // Initiator executes offer flow
+                setupPeerConnection(false); 
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                set(ref(db, `p2p_call/${roomID}/sdp`), { type: "offer", sdp: JSON.stringify(offer) });
+            }
+
+            if (data.status === "ended") {
+                clearCallUI();
             }
         });
 
-        // WebRTC Signaling Tracks
-        onChildAdded(ref(db, `group_calls/${roomID}/signals/${myName}`), async (snapshot) => {
+        // Track SDP Offer/Answer exchanges
+        onValue(ref(db, `p2p_call/${roomID}/sdp`), async (snapshot) => {
             const data = snapshot.val();
-            const sender = snapshot.key;
-            if (!data) return;
+            if (!data || !pc) return;
 
-            if (data.type === "offer") {
-                await setupPeerConnection(sender, false);
-                await peerConnections[sender].setRemoteDescription(new RTCSessionDescription(data.offer));
-                const answer = await peerConnections[sender].createAnswer();
-                await peerConnections[sender].setLocalDescription(answer);
-                set(ref(db, `group_calls/${roomID}/signals/${sender}/${myName}`), { type: "answer", answer: answer });
-            } else if (data.type === "answer") {
-                if (peerConnections[sender]) {
-                    await peerConnections[sender].setRemoteDescription(new RTCSessionDescription(data.answer));
-                }
-            } else if (data.type === "ice") {
-                if (peerConnections[sender] && data.candidate) {
-                    await peerConnections[sender].addIceCandidate(new RTCIceCandidate(data.candidate));
-                }
+            const sessionDesc = JSON.parse(data.sdp);
+            if (data.type === "offer" && myName !== snapshot.parent.val().initiator) {
+                await pc.setRemoteDescription(new RTCSessionDescription(sessionDesc));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                set(ref(db, `p2p_call/${roomID}/sdp`), { type: "answer", sdp: JSON.stringify(answer) });
+            } else if (data.type === "answer" && myName === snapshot.parent.val().initiator) {
+                await pc.setRemoteDescription(new RTCSessionDescription(sessionDesc));
             }
         });
 
-        onChildAdded(ref(db, `group_calls/${roomID}/leave`), (snapshot) => {
-            const leftUser = snapshot.val();
-            if (leftUser && leftUser !== myName) removeUserFromCall(leftUser);
+        // Ice routing track sync
+        onChildAdded(ref(db, `p2p_call/${roomID}/ice`), (snapshot) => {
+            const data = snapshot.val();
+            if (data && data.sender !== myName && pc) {
+                pc.addIceCandidate(new RTCIceCandidate(JSON.parse(data.candidate)));
+            }
         });
     }
 
-    async function setupPeerConnection(remoteUser, isInitiator) {
-        if (peerConnections[remoteUser]) return;
-
-        const pc = new RTCPeerConnection(rtcConfig);
-        peerConnections[remoteUser] = pc;
+    function setupPeerConnection(isReceiver) {
+        if (pc) return;
+        pc = new RTCPeerConnection(rtcConfig);
 
         if (localStream) {
             localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
         }
 
-        pc.ontrack = (event) => { addVideoBox(remoteUser, event.streams[0]); };
+        pc.ontrack = (event) => {
+            // Add other user screen box
+            onValue(ref(db, `p2p_call/${roomID}`), (snapshot) => {
+                const data = snapshot.val();
+                const peerName = data ? (data.initiator === myName ? "Peer" : data.initiator) : "Remote";
+                addVideoBox(peerName, event.streams[0]);
+            }, { onlyOnce: true });
+        };
 
         pc.onicecandidate = (event) => {
             if (event.candidate) {
-                set(ref(db, `group_calls/${roomID}/signals/${remoteUser}/${myName}/ice`), { candidate: event.candidate.toJSON() });
+                push(ref(db, `p2p_call/${roomID}/ice`), {
+                    sender: myName,
+                    candidate: JSON.stringify(event.candidate.toJSON())
+                });
             }
         };
-
-        if (isInitiator) {
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            set(ref(db, `group_calls/${roomID}/signals/${remoteUser}/${myName}`), { type: "offer", offer: offer });
-        }
     }
 
     document.getElementById('acceptCallBtn').onclick = async () => {
@@ -474,46 +469,31 @@
         await initMedia();
         document.getElementById('video-container').style.display = 'block';
 
-        onValue(ref(db, `chat_rooms/${roomID}_users`), (snapshot) => {
-            const users = snapshot.val();
-            if(users) {
-                Object.keys(users).forEach(userKey => {
-                    if (userKey !== myName) {
-                        setupPeerConnection(userKey, true); 
-                    }
-                });
-            }
-        }, { onlyOnce: true });
+        setupPeerConnection(true);
+        update(ref(db, `p2p_call/${roomID}`), { status: "connected" });
     };
 
     document.getElementById('rejectCallBtn').onclick = () => {
         document.getElementById('call-notification').style.display = 'none';
+        set(ref(db, `p2p_call/${roomID}`), null);
     };
 
-    function removeUserFromCall(user) {
-        if (peerConnections[user]) { peerConnections[user].close(); delete peerConnections[user]; }
-        const box = document.getElementById(`vid-box-${user}`);
-        if (box) box.remove();
-    }
-
-    function closeAllCalls() {
+    function clearCallUI() {
         document.getElementById('video-container').style.display = 'none';
         document.getElementById('call-notification').style.display = 'none';
-        
-        push(ref(db, `group_calls/${roomID}/leave`), myName);
-        remove(ref(db, `group_calls/${roomID}/signals/${myName}`));
-        
-        push(ref(db, `group_calls/${roomID}/broadcast`), { action: "ended" });
-        setTimeout(() => { remove(ref(db, `group_calls/${roomID}`)); }, 2000);
-
         if (localStream) { localStream.getTracks().forEach(track => track.stop()); localStream = null; }
-        Object.keys(peerConnections).forEach(user => { peerConnections[user].close(); });
-        peerConnections = {};
+        if (pc) { pc.close(); pc = null; }
         document.getElementById('video-grid').innerHTML = "";
     }
 
-    document.getElementById('startCallBtn').onclick = startGroupCall;
-    document.getElementById('endCallBtn').onclick = closeAllCalls;
+    function closeCall() {
+        set(ref(db, `p2p_call/${roomID}`), { status: "ended" });
+        setTimeout(() => { remove(ref(db, `p2p_call/${roomID}`)); }, 1000);
+        clearCallUI();
+    }
+
+    document.getElementById('startCallBtn').onclick = startP2PCall;
+    document.getElementById('endCallBtn').onclick = closeCall;
 
     document.getElementById('muteMicBtn').onclick = () => {
         isMuted = !isMuted;
@@ -526,15 +506,15 @@
             localStream.getTracks().forEach(track => track.stop());
             localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode }, audio: true });
             document.getElementById(`vid-box-${myName}`).querySelector('video').srcObject = localStream;
-            Object.keys(peerConnections).forEach(user => {
+            if(pc) {
                 const videoTrack = localStream.getVideoTracks()[0];
-                const sender = peerConnections[user].getSenders().find(s => s.track.kind === 'video');
+                const sender = pc.getSenders().find(s => s.track.kind === 'video');
                 if(sender) sender.replaceTrack(videoTrack);
-            });
+            }
         }
     };
 
-    // FLOATING VIDEO CONTAINER MOVING DRAG EVENT HANDLERS
+    // DRAG INTERCEPT CONTROL
     const videoCont = document.getElementById("video-container");
     let isDragging = false, currentX, currentY, initialX, initialY, xOffset = 0, yOffset = 0;
 
