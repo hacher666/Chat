@@ -3,65 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vibe Chat | Live</title>
+    <title>Vibe Chat | Clean</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: sans-serif; background: #0b141a; height: 100vh; display: flex; justify-content: center; align-items: center; }
-        #main-container { width: 100%; max-width: 450px; height: 95vh; background: #111b21; display: flex; flex-direction: column; overflow: hidden; border-radius: 12px; border: 1px solid #222e35; position: relative; }
-        
-        #login-box { padding: 40px; text-align: center; color: white; margin: auto; }
-        input { width: 100%; padding: 14px; margin: 10px 0; border-radius: 10px; border: none; background: #2a3942; color: white; }
-        .btn-join { width: 100%; padding: 14px; border: none; border-radius: 10px; background: #00a884; color: white; cursor: pointer; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: #0b141a; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        #main-container { width: 100%; max-width: 400px; height: 90vh; background: #111b21; display: flex; flex-direction: column; border-radius: 20px; border: 1px solid #2a3942; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
 
-        #chat-box { display: none; flex-direction: column; height: 100%; }
-        .chat-header { padding: 15px; background: #202c33; color: white; display: flex; align-items: center; justify-content: space-between; }
-        #messages { flex-grow: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        /* Header */
+        .chat-header { padding: 15px 20px; background: #202c33; color: white; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #2a3942; }
+        .header-actions { display: flex; gap: 20px; }
+        .icon-btn { background: transparent; border: none; color: #00a884; cursor: pointer; font-size: 20px; transition: 0.3s; }
+
+        /* Messages */
+        #messages { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+        .msg { max-width: 80%; padding: 10px 15px; border-radius: 12px; color: #e9edef; font-size: 14px; line-height: 1.4; }
+        .sent { background: #005c4b; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .received { background: #202c33; align-self: flex-start; border-bottom-left-radius: 2px; }
+
+        /* Notification Modal */
+        #call-modal { display: none; position: absolute; top: 70px; left: 10px; right: 10px; background: #202c33; padding: 15px; border-radius: 12px; color: white; text-align: center; border: 1px solid #00a884; z-index: 1000; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        .modal-btns { display: flex; justify-content: center; gap: 15px; margin-top: 10px; }
         
-        .msg { max-width: 85%; padding: 8px 12px; border-radius: 10px; color: #e9edef; font-size: 15px; position: relative; }
-        .sent { background: #005c4b; align-self: flex-end; }
-        .received { background: #202c33; align-self: flex-start; }
-        
-        #video-container { display: none; position: absolute; top: 70px; right: 10px; width: 150px; height: 200px; background: #000; border-radius: 10px; z-index: 999; resize: both; overflow: auto; border: 2px solid #00a884; }
-        #remote-video { width: 100%; height: 100%; object-fit: cover; }
-        #local-video { width: 40px; height: 50px; position: absolute; bottom: 5px; right: 5px; border-radius: 4px; border: 1px solid white; }
-        
-        #call-modal { display: none; position: absolute; top: 30%; left: 10%; width: 80%; background: #202c33; padding: 20px; border-radius: 15px; color: white; text-align: center; z-index: 1000; border: 2px solid #00a884; }
-        .input-bar { padding: 10px; background: #202c33; display: flex; align-items: center; gap: 8px; }
+        /* Input */
+        .input-bar { padding: 15px; background: #202c33; display: flex; align-items: center; gap: 12px; }
+        #msg-input { flex-grow: 1; padding: 10px 15px; border-radius: 20px; border: none; background: #2a3942; color: white; outline: none; }
     </style>
 </head>
 <body>
 
 <div id="main-container">
-    <div id="login-box">
+    <div id="login-box" style="padding: 40px; color: white; text-align: center; margin: auto;">
         <h2>VIBE CHAT</h2>
-        <input type="text" id="username" placeholder="Apna Naam">
-        <input type="text" id="room-code" placeholder="Room Code">
-        <button class="btn-join" id="loginBtn">JOIN NOW</button>
+        <input type="text" id="username" placeholder="Name" style="width:100%; padding:10px; margin:10px 0; border-radius:8px; border:none;">
+        <input type="text" id="room-code" placeholder="Room" style="width:100%; padding:10px; margin:10px 0; border-radius:8px; border:none;">
+        <button id="loginBtn" style="width:100%; padding:10px; background:#00a884; border:none; color:white; border-radius:8px; cursor:pointer;">JOIN</button>
     </div>
 
-    <div id="chat-box">
+    <div id="chat-box" style="display: none; flex-direction: column; height: 100%;">
         <div class="chat-header">
             <strong id="display-user">User</strong>
-            <button id="startCallBtn">📹 Call</button>
-        </div>
-        <div id="messages"></div>
-        
-        <div id="video-container">
-            <video id="remote-video" autoplay playsinline></video>
-            <video id="local-video" autoplay playsinline muted></video>
-            <button id="endCallBtn" style="position:absolute; top:0; left:0; background:red; color:white; border:none; padding:5px;">End</button>
+            <div class="header-actions">
+                <button id="startCallBtn" class="icon-btn">📹</button>
+            </div>
         </div>
 
         <div id="call-modal">
-            <p id="caller-text">Incoming Call...</p>
-            <button id="acceptBtn" class="btn-join" style="background:green; margin-top:10px;">Accept</button>
-            <button id="rejectBtn" class="btn-join" style="background:red; margin-top:10px;">Reject</button>
+            <p id="caller-text" style="margin-bottom:10px;">Incoming Call...</p>
+            <div class="modal-btns">
+                <button id="acceptBtn" style="background:green; color:white; border:none; padding:5px 15px; border-radius:5px;">Accept</button>
+                <button id="rejectBtn" style="background:red; color:white; border:none; padding:5px 15px; border-radius:5px;">Reject</button>
+            </div>
         </div>
 
+        <div id="messages"></div>
+
         <div class="input-bar">
-            <input type="text" id="msg-input" placeholder="Type...">
-            <button id="micBtn">🎤</button>
-            <button id="sendBtn">➤</button>
+            <input type="text" id="msg-input" placeholder="Type a message...">
+            <button id="micBtn" class="icon-btn">🎤</button>
+            <button id="sendBtn" class="icon-btn" style="color: #00a884;">➤</button>
         </div>
     </div>
 </div>
@@ -83,8 +82,8 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    let myName, roomID, mediaRecorder, audioChunks = [];
-
+    let myName, roomID;
+    
     document.getElementById('loginBtn').onclick = () => {
         myName = document.getElementById('username').value.trim();
         roomID = document.getElementById('room-code').value.trim();
@@ -94,6 +93,7 @@
         document.getElementById('chat-box').style.display = 'flex';
         document.getElementById('display-user').innerText = myName;
 
+        // Auto-delete logic integration
         onChildAdded(ref(db, 'rooms/' + roomID), (snap) => {
             const msgID = snap.key;
             const data = snap.val();
@@ -109,6 +109,7 @@
             }, 10000);
         });
 
+        // Call Notifications
         onValue(ref(db, `calls/${roomID}`), (snap) => {
             const data = snap.val();
             if (data && data.caller !== myName && !data.answered) {
@@ -119,37 +120,19 @@
     };
 
     document.getElementById('sendBtn').onclick = () => {
-        const text = document.getElementById('msg-input').value;
-        push(ref(db, 'rooms/' + roomID), { user: myName, content: text, type: 'text' });
-        document.getElementById('msg-input').value = "";
-    };
-
-    document.getElementById('micBtn').onmousedown = async () => {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-        audioChunks = [];
-        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-        mediaRecorder.onstop = () => {
-            const reader = new FileReader();
-            reader.readAsDataURL(new Blob(audioChunks));
-            reader.onloadend = () => push(ref(db, 'rooms/' + roomID), { user: myName, content: reader.result, type: 'audio' });
-        };
-        mediaRecorder.start();
-    };
-    document.getElementById('micBtn').onmouseup = () => mediaRecorder.stop();
-
-    document.getElementById('startCallBtn').onclick = () => {
-        set(ref(db, `calls/${roomID}`), { caller: myName, answered: false });
-        document.getElementById('video-container').style.display = 'block';
+        const input = document.getElementById('msg-input');
+        if(!input.value) return;
+        push(ref(db, 'rooms/' + roomID), { user: myName, content: input.value, type: 'text' });
+        input.value = "";
     };
 
     document.getElementById('acceptBtn').onclick = () => {
         document.getElementById('call-modal').style.display = 'none';
-        document.getElementById('video-container').style.display = 'block';
+        alert("Call Accepted!");
     };
-
-    document.getElementById('endCallBtn').onclick = () => {
-        document.getElementById('video-container').style.display = 'none';
+    
+    document.getElementById('rejectBtn').onclick = () => {
+        document.getElementById('call-modal').style.display = 'none';
         set(ref(db, `calls/${roomID}`), null);
     };
 </script>
