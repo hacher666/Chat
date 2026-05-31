@@ -19,7 +19,9 @@
         #chat-box { display: none; flex-direction: column; height: 100%; }
         .chat-header { padding: 15px; background: #202c33; color: white; display: flex; align-items: center; justify-content: space-between; z-index: 10; position: relative; }
         .header-info { display: flex; align-items: center; gap: 12px; max-width: 70%; }
-        .avatar { width: 40px; height: 40px; background: #00a884; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; flex-shrink: 0; }
+        
+        /* 🔥 Dynamic Avatar Styling (Clickable) */
+        .avatar { width: 40px; height: 40px; background: #00a884; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; flex-shrink: 0; cursor: pointer; overflow: hidden; background-size: cover; background-position: center; border: 1px solid rgba(255,255,255,0.2); }
         .header-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         
         /* Action Buttons on Header */
@@ -64,6 +66,7 @@
 <body>
 
 <div id="main-container">
+    <!-- Login Screen -->
     <div id="login-box">
         <h2>VIBE CHAT</h2>
         <input type="text" id="username" placeholder="Apna Naam Likho">
@@ -71,10 +74,14 @@
         <button class="btn-join" id="loginBtn">JOIN NOW</button>
     </div>
 
+    <!-- Chat Window Screen -->
     <div id="chat-box">
         <div class="chat-header">
             <div class="header-info">
-                <div class="avatar" id="room-avatar">💬</div>
+                <!-- 🔥 Hidden Input Profile Photo Ke Liye -->
+                <input type="file" id="profile-input" hidden accept="image/*">
+                <div class="avatar" id="room-avatar" title="Click to change profile photo">💬</div>
+                
                 <div class="header-text">
                     <strong id="display-room">Connecting...</strong><br>
                     <small style="color: #00a884;" id="online-status">online</small>
@@ -89,6 +96,7 @@
             </div>
         </div>
 
+        <!-- Incoming Call Alert Overlay -->
         <div id="call-notification">
             <span id="caller-name">Incoming Call...</span>
             <div class="call-actions-btn">
@@ -99,6 +107,7 @@
         
         <div id="messages"></div>
 
+        <!-- Mini Floating Video Window Inside Chat -->
         <div id="video-container">
             <video id="remote-video" autoplay playsinline></video>
             <video id="local-video" autoplay playsinline muted></video>
@@ -144,7 +153,6 @@
     let currentFacingMode = "user"; 
     let isMuted = false;
     let currentCallData = null;
-    let activeUsers = {};
 
     const rtcConfig = { iceServers: [{ urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"] }] };
 
@@ -156,23 +164,35 @@
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('chat-box').style.display = 'flex';
             
-            // 🔥 User tracking aur dynamic naming handle karne ke liye user presence set kar rahe hain
-            const userStatusRef = ref(db, `chat_rooms/${roomID}_users/${myName}`);
+            // User entry point set karna (Agar purani pfp h toh secure rhegi)
+            const userStatusRef = ref(db, `chat_rooms/${roomID}_users/${myName}/online`);
             set(userStatusRef, true);
-            // Tab close hone par ya offline hone par user hat jayega database se
             onDisconnect(userStatusRef).remove();
 
-            // Room users ko listen karke header name badalna
+            // 🔥 Real-time Users Tracker (Names + Profile Pics Dono Ke Liye)
             onValue(ref(db, `chat_rooms/${roomID}_users`), (snapshot) => {
                 const users = snapshot.val();
                 if (users) {
                     const namesArray = Object.keys(users);
-                    // Header string taiyar karna (jaise: "Pintu & Amit")
                     document.getElementById('display-room').innerText = namesArray.join(' & ');
                     
-                    // Avatar set karne ke liye pehle letter ka use
-                    const firstUser = namesArray[0];
-                    document.getElementById('room-avatar').innerText = firstUser ? firstUser[0].toUpperCase() : "💬";
+                    // Room avatar logic fix: Agar kisi ne photo lagayi hai, toh avatar mein background set hoga
+                    let pfpFound = null;
+                    namesArray.forEach(userKey => {
+                        if (users[userKey] && users[userKey].pfp) {
+                            pfpFound = users[userKey].pfp; 
+                        }
+                    });
+
+                    const avatarDiv = document.getElementById('room-avatar');
+                    if (pfpFound) {
+                        avatarDiv.style.backgroundImage = `url('${pfpFound}')`;
+                        avatarDiv.innerText = ""; // Text gayab ho jayega image aane par
+                    } else {
+                        avatarDiv.style.backgroundImage = "none";
+                        const firstUser = namesArray[0];
+                        avatarDiv.innerText = firstUser ? firstUser[0].toUpperCase() : "💬";
+                    }
                 } else {
                     document.getElementById('display-room').innerText = myName;
                 }
@@ -215,11 +235,27 @@
         }
     };
 
-    // Firebase standard connection monitoring utility handle fallback helper 
+    // 🔥 PROFILE IMAGE CLICK AND UPLOAD LOGIC
+    document.getElementById('room-avatar').onclick = () => {
+        document.getElementById('profile-input').click();
+    };
+
+    document.getElementById('profile-input').onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            // Profile image base64 text database ke user node pe store ho raha h
+            update(ref(db, `chat_rooms/${roomID}_users/${myName}`), {
+                pfp: event.target.result
+            });
+        };
+        reader.readAsDataURL(file);
+    };
+
     function onDisconnect(nodeRef) {
         return {
             remove: () => {
-                // background cleanup handles safety internally on browser closing state
                 window.addEventListener('beforeunload', () => remove(nodeRef));
             }
         }
