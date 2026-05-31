@@ -3,20 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vibe Chat | Pure P2P Calling</title>
+    <title>Vibe Chat | Real WebRTC Header Fixed</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0b141a; height: 100vh; display: flex; justify-content: center; align-items: center; }
         
         #main-container { width: 100%; max-width: 450px; height: 95vh; background: #111b21; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 12px; border: 1px solid #222e35; position: relative; }
         
-        /* Login */
+        /* Login Box */
         #login-box { padding: 40px; text-align: center; color: white; margin: auto; width: 100%; }
         #login-box h2 { color: #00a884; margin-bottom: 25px; font-size: 30px; letter-spacing: 1px; }
         input { width: 100%; padding: 14px; margin: 10px 0; border-radius: 10px; border: none; background: #2a3942; color: white; font-size: 16px; outline: none; }
         .btn-join { width: 100%; padding: 14px; border: none; border-radius: 10px; background: #00a884; color: white; font-weight: bold; cursor: pointer; font-size: 16px; }
 
-        /* Chat UI */
+        /* Chat Window UI */
         #chat-box { display: none; flex-direction: column; height: 100%; }
         .chat-header { padding: 15px; background: #202c33; color: white; display: flex; align-items: center; justify-content: space-between; z-index: 10; position: relative; }
         .header-info { display: flex; align-items: center; gap: 12px; max-width: 70%; }
@@ -49,7 +49,7 @@
         .recording-active { color: #ea0038 !important; animation: pulse 1s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
-        /* FLOATING CALL CONTAINER (RESIZABLE & DRAGGABLE) */
+        /* FLOATING VIDEO CALL FRAME CONTAINER */
         #video-container { display: none; position: absolute; top: 75px; right: 15px; width: 180px; height: 260px; min-width: 150px; min-height: 200px; max-width: 400px; max-height: 550px; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.6); border: 2px solid #00a884; z-index: 999; cursor: move; padding: 4px; resize: both; }
         #video-container::after { content: "◢"; position: absolute; bottom: 0; right: 2px; color: #00a884; font-size: 12px; font-weight: bold; pointer-events: none; cursor: se-resize; }
 
@@ -64,7 +64,7 @@
         .v-btn { background: rgba(32, 44, 51, 0.9); border: none; color: white; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; }
         .v-btn.end-call { background: #ea0038; }
 
-        /* HEADER CALL NOTIFICATION PANEL */
+        /* FIXED HEADER NOTIFICATION PANEL */
         #call-notification { display: none; position: absolute; top: 0; left: 0; width: 100%; background: #00a884; padding: 12px 20px; z-index: 10000; justify-content: space-between; align-items: center; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; font-weight: bold; animation: slideDown 0.25s ease-out; }
         @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
         .call-actions-btn { display: flex; gap: 10px; }
@@ -151,7 +151,7 @@
 
     let myName, roomID;
     let localStream = null;
-    let pc = null; // Strict single peer reference
+    let rtcPeerConnection = null; 
     let currentFacingMode = "user"; 
     let isMuted = false;
 
@@ -159,7 +159,7 @@
     let audioChunks = [];
     let isRecording = false;
 
-    const rtcConfig = { iceServers: [{ urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"] }] };
+    const iceConfig = { iceServers: [{ urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"] }] };
 
     document.getElementById('loginBtn').onclick = () => {
         myName = document.getElementById('username').value.trim();
@@ -174,7 +174,7 @@
             onDisconnect(userStatusRef).remove();
             
             window.addEventListener('beforeunload', () => {
-                closeCall();
+                closeWebRTCCall();
                 remove(userStatusRef);
             });
 
@@ -244,7 +244,7 @@
                 }
             });
 
-            listenForP2PSignals();
+            listenForWebRTCSignals();
         } else {
             alert("Please enter Name and Room Code!");
         }
@@ -340,19 +340,19 @@
         }, 10000);
     }
 
-    // 📹 PURE 1-TO-1 PEER TO PEER SIGNALING PIPELINE (FIXED)
-    async function initMedia() {
+    // 📹 WEBRTC SIGNAL ENGINE (ONCHILDADDED & ONCHILDCHANGED COUPLING)
+    async function initMediaStream() {
         if (!localStream) {
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode }, audio: true });
-                addVideoBox(myName, localStream, true);
+                addCallVideoBox(myName, localStream, true);
             } catch (e) {
-                alert("Camera/Mic Permission Required!");
+                alert("Camera ya Mic access enable karein!");
             }
         }
     }
 
-    function addVideoBox(id, stream, isLocal = false) {
+    function addCallVideoBox(id, stream, isLocal = false) {
         if(document.getElementById(`vid-box-${id}`)) return;
         const grid = document.getElementById('video-grid');
         const box = document.createElement('div');
@@ -367,98 +367,96 @@
 
         const label = document.createElement('div');
         label.className = 'video-label';
-        label.innerText = isLocal ? "You" : id;
+        label.innerText = isLocal ? "You" : "Remote User";
 
         box.appendChild(video);
         box.appendChild(label);
         grid.appendChild(box);
     }
 
-    async function startP2PCall() {
-        await initMedia();
+    async function startWebRTCCall() {
+        await initMediaStream();
         document.getElementById('video-container').style.display = 'block';
         
-        // Channel standard data set
-        set(ref(db, `p2p_call/${roomID}`), {
+        createPeerConnection();
+
+        const offer = await rtcPeerConnection.createOffer();
+        await rtcPeerConnection.setLocalDescription(offer);
+
+        // Pure dynamic key set kiya taaki child listeners trigger ho sakein instantly
+        set(ref(db, `webrtc_call/${roomID}`), {
             initiator: myName,
-            status: "ringing"
+            status: "calling",
+            offer: { type: offer.type, sdp: offer.sdp }
         });
     }
 
-    function listenForP2PSignals() {
-        // Absolute Caller Header Logic Listener
-        onValue(ref(db, `p2p_call/${roomID}`), async (snapshot) => {
+    function listenForWebRTCSignals() {
+        const callRef = ref(db, `webrtc_call/${roomID}`);
+
+        // FIX: Jab node create hoga tab option show hoga
+        onChildAdded(callRef, (snapshot) => {
+            handleCallStateUpdate();
+        });
+
+        // FIX: Jab data change hoga (jaise call accept ya end hogi) tab update hoga
+        onChildChanged(callRef, (snapshot) => {
+            handleCallStateUpdate();
+        });
+
+        // ICE candidate pipeline setup
+        onChildAdded(ref(db, `webrtc_call/${roomID}/ice_candidates`), (snapshot) => {
+            const data = snapshot.val();
+            if (data && data.sender !== myName && rtcPeerConnection) {
+                rtcPeerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
+        });
+    }
+
+    // Dynamic Header Alert Controller Engine
+    function handleCallStateUpdate() {
+        onValue(ref(db, `webrtc_call/${roomID}`), async (snapshot) => {
             const data = snapshot.val();
             if (!data) {
                 document.getElementById('call-notification').style.display = 'none';
                 return;
             }
 
-            if (data.status === "ringing" && data.initiator !== myName) {
-                document.getElementById('caller-name').innerText = `📹 Call from: ${data.initiator}`;
+            // Header Alert Pop-up validation trigger
+            if (data.status === "calling" && data.initiator !== myName) {
+                document.getElementById('caller-name').innerText = `📹 Incoming Call from: ${data.initiator}`;
                 document.getElementById('call-notification').style.display = 'flex';
             }
 
-            if (data.status === "connected" && data.initiator === myName) {
-                // Initiator executes offer flow
-                setupPeerConnection(false); 
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                set(ref(db, `p2p_call/${roomID}/sdp`), { type: "offer", sdp: JSON.stringify(offer) });
+            if (data.status === "accepted" && data.initiator === myName && data.answer) {
+                if (rtcPeerConnection && !rtcPeerConnection.remoteDescription) {
+                    await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+                }
             }
 
             if (data.status === "ended") {
-                clearCallUI();
+                clearCallFrames();
             }
-        });
-
-        // Track SDP Offer/Answer exchanges
-        onValue(ref(db, `p2p_call/${roomID}/sdp`), async (snapshot) => {
-            const data = snapshot.val();
-            if (!data || !pc) return;
-
-            const sessionDesc = JSON.parse(data.sdp);
-            if (data.type === "offer" && myName !== snapshot.parent.val().initiator) {
-                await pc.setRemoteDescription(new RTCSessionDescription(sessionDesc));
-                const answer = await pc.createAnswer();
-                await pc.setLocalDescription(answer);
-                set(ref(db, `p2p_call/${roomID}/sdp`), { type: "answer", sdp: JSON.stringify(answer) });
-            } else if (data.type === "answer" && myName === snapshot.parent.val().initiator) {
-                await pc.setRemoteDescription(new RTCSessionDescription(sessionDesc));
-            }
-        });
-
-        // Ice routing track sync
-        onChildAdded(ref(db, `p2p_call/${roomID}/ice`), (snapshot) => {
-            const data = snapshot.val();
-            if (data && data.sender !== myName && pc) {
-                pc.addIceCandidate(new RTCIceCandidate(JSON.parse(data.candidate)));
-            }
-        });
+        }, { onlyOnce: true });
     }
 
-    function setupPeerConnection(isReceiver) {
-        if (pc) return;
-        pc = new RTCPeerConnection(rtcConfig);
+    function createPeerConnection() {
+        if (rtcPeerConnection) return;
+        rtcPeerConnection = new RTCPeerConnection(iceConfig);
 
         if (localStream) {
-            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+            localStream.getTracks().forEach(track => rtcPeerConnection.addTrack(track, localStream));
         }
 
-        pc.ontrack = (event) => {
-            // Add other user screen box
-            onValue(ref(db, `p2p_call/${roomID}`), (snapshot) => {
-                const data = snapshot.val();
-                const peerName = data ? (data.initiator === myName ? "Peer" : data.initiator) : "Remote";
-                addVideoBox(peerName, event.streams[0]);
-            }, { onlyOnce: true });
+        rtcPeerConnection.ontrack = (event) => {
+            addCallVideoBox("Remote", event.streams[0]);
         };
 
-        pc.onicecandidate = (event) => {
+        rtcPeerConnection.onicecandidate = (event) => {
             if (event.candidate) {
-                push(ref(db, `p2p_call/${roomID}/ice`), {
+                push(ref(db, `webrtc_call/${roomID}/ice_candidates`), {
                     sender: myName,
-                    candidate: JSON.stringify(event.candidate.toJSON())
+                    candidate: event.candidate.toJSON()
                 });
             }
         };
@@ -466,34 +464,47 @@
 
     document.getElementById('acceptCallBtn').onclick = async () => {
         document.getElementById('call-notification').style.display = 'none';
-        await initMedia();
+        await initMediaStream();
         document.getElementById('video-container').style.display = 'block';
 
-        setupPeerConnection(true);
-        update(ref(db, `p2p_call/${roomID}`), { status: "connected" });
+        createPeerConnection();
+
+        onValue(ref(db, `webrtc_call/${roomID}`), async (snapshot) => {
+            const data = snapshot.val();
+            if (data && data.offer && !rtcPeerConnection.remoteDescription) {
+                await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                const answer = await rtcPeerConnection.createAnswer();
+                await rtcPeerConnection.setLocalDescription(answer);
+                
+                update(ref(db, `webrtc_call/${roomID}`), {
+                    status: "accepted",
+                    answer: { type: answer.type, sdp: answer.sdp }
+                });
+            }
+        }, { onlyOnce: true });
     };
 
     document.getElementById('rejectCallBtn').onclick = () => {
         document.getElementById('call-notification').style.display = 'none';
-        set(ref(db, `p2p_call/${roomID}`), null);
+        set(ref(db, `webrtc_call/${roomID}`), null);
     };
 
-    function clearCallUI() {
+    function clearCallFrames() {
         document.getElementById('video-container').style.display = 'none';
         document.getElementById('call-notification').style.display = 'none';
         if (localStream) { localStream.getTracks().forEach(track => track.stop()); localStream = null; }
-        if (pc) { pc.close(); pc = null; }
+        if (rtcPeerConnection) { rtcPeerConnection.close(); rtcPeerConnection = null; }
         document.getElementById('video-grid').innerHTML = "";
     }
 
-    function closeCall() {
-        set(ref(db, `p2p_call/${roomID}`), { status: "ended" });
-        setTimeout(() => { remove(ref(db, `p2p_call/${roomID}`)); }, 1000);
-        clearCallUI();
+    function closeWebRTCCall() {
+        set(ref(db, `webrtc_call/${roomID}/status`), "ended");
+        setTimeout(() => { remove(ref(db, `webrtc_call/${roomID}`)); }, 1000);
+        clearCallFrames();
     }
 
-    document.getElementById('startCallBtn').onclick = startP2PCall;
-    document.getElementById('endCallBtn').onclick = closeCall;
+    document.getElementById('startCallBtn').onclick = startWebRTCCall;
+    document.getElementById('endCallBtn').onclick = closeWebRTCCall;
 
     document.getElementById('muteMicBtn').onclick = () => {
         isMuted = !isMuted;
@@ -506,15 +517,15 @@
             localStream.getTracks().forEach(track => track.stop());
             localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode }, audio: true });
             document.getElementById(`vid-box-${myName}`).querySelector('video').srcObject = localStream;
-            if(pc) {
+            if(rtcPeerConnection) {
                 const videoTrack = localStream.getVideoTracks()[0];
-                const sender = pc.getSenders().find(s => s.track.kind === 'video');
+                const sender = rtcPeerConnection.getSenders().find(s => s.track.kind === 'video');
                 if(sender) sender.replaceTrack(videoTrack);
             }
         }
     };
 
-    // DRAG INTERCEPT CONTROL
+    // DRAG INTERCEPT FRAME CONTROL LOGIC
     const videoCont = document.getElementById("video-container");
     let isDragging = false, currentX, currentY, initialX, initialY, xOffset = 0, yOffset = 0;
 
@@ -542,7 +553,4 @@
             videoCont.style.transform = `translate(${currentX}px, ${currentY}px)`;
         }
     }
-    function dragEnd() { isDragging = false; }
-</script>
-</body>
-</html>
+    function dragEnd
