@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vibe Chat | Final Fixed WebRTC</title>
+    <title>Vibe Chat | Live WebRTC & Push Alerts</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0b141a; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -64,7 +64,7 @@
         .v-btn { background: rgba(32, 44, 51, 0.9); border: none; color: white; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; }
         .v-btn.end-call { background: #ea0038; }
 
-        /* FIXED TOP HEADER CALL NOTIFICATION PANEL */
+        /* HEADER CALL NOTIFICATION PANEL */
         #call-notification { display: none; position: absolute; top: 0; left: 0; width: 100%; background: #00a884; padding: 12px 20px; z-index: 10000; justify-content: space-between; align-items: center; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; font-weight: bold; animation: slideDown 0.25s ease-out; }
         @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
         .call-actions-btn { display: flex; gap: 10px; }
@@ -169,9 +169,17 @@
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('chat-box').style.display = 'flex';
             
+            // Push Notification Permission Request
+            if (Notification.permission !== "granted") {
+                Notification.requestPermission();
+            }
+
+            // USER DISCONNECT AUTO-CLEANER (LEFT ENGINE)
             const userStatusRef = ref(db, `chat_rooms/${roomID}_users/${myName}`);
-            set(ref(db, `chat_rooms/${roomID}_users/${myName}/online`), true);
+            set(userStatusRef, { online: true, pfp: "" });
+            
             onDisconnect(userStatusRef).remove();
+            onDisconnect(ref(db, `webrtc_call/${roomID}`)).remove();
             
             window.addEventListener('beforeunload', () => {
                 closeWebRTCCall();
@@ -180,6 +188,7 @@
 
             setupVoiceMessageEngine();
 
+            // ACTIVE USER REFRESH TRACKER
             onValue(ref(db, `chat_rooms/${roomID}_users`), (snapshot) => {
                 const users = snapshot.val();
                 const container = document.getElementById('users-display-container');
@@ -220,6 +229,25 @@
                 const data = snapshot.val();
                 if (data.user !== myName && !data.seen) {
                     update(ref(db, `chat_rooms/${roomID}/${msgID}`), { seen: true });
+                    
+                    // 🔥 BACKGROUND BACKGROUND PUSH NOTIFICATION SYSTEM
+                    if (document.hidden && Notification.permission === "granted") {
+                        let notificationBody = "New Message Received";
+                        if(data.type === 'text') notificationBody = data.content;
+                        else if(data.type === 'image') notificationBody = "📷 Sent an image";
+                        else if(data.type === 'audio') notificationBody = "🎵 Sent a voice note";
+
+                        const options = {
+                            body: notificationBody,
+                            icon: 'https://cdn-icons-png.flaticon.com/512/1041/1041916.png', // Default high-visibility chat icon
+                            vibrate: [200, 100, 200],
+                            tag: 'vibe-chat-alert',
+                            renotify: true
+                        };
+                        
+                        // Mobile Notification Bar Trigger with Sender Name
+                        new Notification(`💬 ${data.user}`, options);
+                    }
                 }
                 renderMessage(msgID, data);
             });
@@ -244,7 +272,6 @@
                 }
             });
 
-            // Signaling Triggers Start
             listenForWebRTCSignals();
         } else {
             alert("Name and Room Code Required!");
@@ -384,45 +411,39 @@
         const offer = await rtcPeerConnection.createOffer();
         await rtcPeerConnection.setLocalDescription(offer);
 
-        // State changes directly write to database
-        await set(ref(db, `webrtc_call/${roomID}/initiator`), myName);
-        await set(ref(db, `webrtc_call/${roomID}/offer`), { type: offer.type, sdp: offer.sdp });
-        await set(ref(db, `webrtc_call/${roomID}/status`), "calling");
+        await set(ref(db, `webrtc_call/${roomID}`), {
+            initiator: myName,
+            status: "calling",
+            offer: { type: offer.type, sdp: offer.sdp }
+        });
     }
 
-    // CRITICAL CORE FIX: State tracking with fallback to prevent dead values on consecutive calls
     function listenForWebRTCSignals() {
-        const statusRef = ref(db, `webrtc_call/${roomID}/status`);
+        const callRootRef = ref(db, `webrtc_call/${roomID}`);
 
-        onValue(statusRef, (snapshot) => {
-            const currentStatus = snapshot.val();
+        onValue(callRootRef, async (snapshot) => {
+            const data = snapshot.val();
             
-            // Fixed hide trigger when status is idle or empty
-            if (!currentStatus || currentStatus === "idle" || currentStatus === "ended") {
+            if (!data || data.status === "ended") {
                 document.getElementById('call-notification').style.display = 'none';
-                if(currentStatus === "ended") clearCallFrames();
+                clearCallFrames();
                 return;
             }
 
-            if (currentStatus === "calling") {
-                onValue(ref(db, `webrtc_call/${roomID}/initiator`), (initSnap) => {
-                    const callSender = initSnap.val();
-                    if (callSender && callSender !== myName) {
-                        document.getElementById('caller-name').innerText = `📹 Incoming Call from: ${callSender}`;
-                        document.getElementById('call-notification').style.display = 'flex';
-                    }
-                }, { onlyOnce: true });
+            if (data.status === "calling" && data.initiator !== myName) {
+                document.getElementById('caller-name').innerText = `📹 Incoming Call from: ${data.initiator}`;
+                document.getElementById('call-notification').style.display = 'flex';
+                
+                // Call notification bar support if tab is hidden
+                if (document.hidden && Notification.permission === "granted") {
+                    new Notification("📹 Vibe Call Alert", { body: `Incoming video call from ${data.initiator}` });
+                }
             }
 
-            if (currentStatus === "accepted") {
-                onValue(ref(db, `webrtc_call/${roomID}`), async (rootSnap) => {
-                    const data = rootSnap.val();
-                    if (data && data.initiator === myName && data.answer) {
-                        if (rtcPeerConnection && !rtcPeerConnection.remoteDescription) {
-                            await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-                        }
-                    }
-                }, { onlyOnce: true });
+            if (data.status === "accepted" && data.initiator === myName && data.answer) {
+                if (rtcPeerConnection && !rtcPeerConnection.remoteDescription) {
+                    await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+                }
             }
         });
 
@@ -470,15 +491,17 @@
                 const answer = await rtcPeerConnection.createAnswer();
                 await rtcPeerConnection.setLocalDescription(answer);
                 
-                await set(ref(db, `webrtc_call/${roomID}/answer`), { type: answer.type, sdp: answer.sdp });
-                await set(ref(db, `webrtc_call/${roomID}/status`), "accepted");
+                await update(ref(db, `webrtc_call/${roomID}`), {
+                    status: "accepted",
+                    answer: { type: answer.type, sdp: answer.sdp }
+                });
             }
         }, { onlyOnce: true });
     };
 
-    document.getElementById('rejectCallBtn').onclick = async () => {
+    document.getElementById('rejectCallBtn').onclick = () => {
         document.getElementById('call-notification').style.display = 'none';
-        await set(ref(db, `webrtc_call/${roomID}/status`), "idle");
+        remove(ref(db, `webrtc_call/${roomID}`));
     };
 
     function clearCallFrames() {
@@ -489,12 +512,9 @@
         document.getElementById('video-grid').innerHTML = "";
     }
 
-    async function closeWebRTCCall() {
-        // FIX: Remove karne ki jagah status node state ko "ended" bhejenge fir candidates clean karenge
-        await set(ref(db, `webrtc_call/${roomID}/status`), "ended");
-        await remove(ref(db, `webrtc_call/${roomID}/ice_candidates`));
-        await remove(ref(db, `webrtc_call/${roomID}/offer`));
-        await remove(ref(db, `webrtc_call/${roomID}/answer`));
+    function closeWebRTCCall() {
+        set(ref(db, `webrtc_call/${roomID}/status`), "ended");
+        setTimeout(() => { remove(ref(db, `webrtc_call/${roomID}`)); }, 500);
         clearCallFrames();
     }
 
@@ -543,12 +563,4 @@
             e.preventDefault();
             let clientX = e.type === "touchmove" ? e.touches[0].clientX : e.clientX;
             let clientY = e.type === "touchmove" ? e.touches[0].clientY : e.clientY;
-            currentX = clientX - initialX; currentY = clientY - initialY;
-            xOffset = currentX; yOffset = currentY;
-            videoCont.style.transform = `translate(${currentX}px, ${currentY}px)`;
-        }
-    }
-    function dragEnd() { isDragging = false; }
-</script>
-</body>
-</html>
+            currentX = clientX -
