@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vibe Chat | Ultra Secure</title>
+    <title>Vibe Chat | Ultra Secure & Fixed Call</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0b141a; height: 100vh; display: flex; justify-content: center; align-items: center; -webkit-user-select: none; user-select: none; }
         
         #main-container { width: 100%; max-width: 450px; height: 95vh; background: #111b21; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 12px; border: 1px solid #222e35; position: relative; transition: filter 0.1s ease-in-out, opacity 0.1s ease-in-out; }
         
-        /* 🔥 Multi-Layer Security States */
         .secure-blur { filter: blur(40px) brightness(0.05) !important; pointer-events: none !important; }
         .secure-hide { opacity: 0 !important; filter: brightness(0) !important; pointer-events: none !important; }
 
@@ -38,7 +37,6 @@
         .sent { background: #005c4b; align-self: flex-end; border-top-right-radius: 0; }
         .received { background: #202c33; align-self: flex-start; border-top-left-radius: 0; }
         
-        /* High Visibility Security Alert Trigger CSS */
         .system-alert { background: #ea0038 !important; color: white !important; align-self: center !important; text-align: center; font-size: 13px !important; border-radius: 8px !important; font-weight: bold; width: 90%; margin: 6px 0; box-shadow: 0 0 15px rgba(234,0,56,0.6); animation: shake 0.3s ease-in-out; }
         @keyframes shake { 0%, 100% {transform: translateX(0);} 25% {transform: translateX(-6px);} 75% {transform: translateX(6px);} }
 
@@ -52,23 +50,24 @@
         #msg-input { flex-grow: 1; background: #2a3942; padding: 12px 18px; border-radius: 25px; margin: 0; }
         .icon-btn { background: none; border: none; color: #8696a0; cursor: pointer; font-size: 24px; display: flex; align-items: center; }
 
-        /* Floating Window Multi-User Layout */
-        #video-container { display: none; position: absolute; top: 75px; right: 15px; width: 165px; height: 245px; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.6); border: 2px solid #00a884; z-index: 999; cursor: move; padding: 4px; }
-        #video-grid { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; height: 100%; justify-content: center; align-items: center; }
-        .video-box { position: relative; flex: 1 1 45%; min-width: 65px; height: 100%; background: #222; border-radius: 6px; overflow: hidden; }
+        /* 🔥 RESIZABLE FLOATING WINDOW SYSTEM */
+        #video-container { display: none; position: absolute; top: 75px; right: 15px; width: 180px; height: 260px; min-width: 150px; min-height: 200px; max-width: 400px; max-height: 550px; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.6); border: 2px solid #00a884; z-index: 999; cursor: move; padding: 4px; resize: both; }
+        
+        /* Custom Resize Grip Indicator Element */
+        #video-container::after { content: "◢"; position: absolute; bottom: 0; right: 2px; color: #00a884; font-size: 12px; font-weight: bold; pointer-events: none; cursor: se-resize; }
+
+        #video-grid { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; height: 100%; justify-content: center; align-items: center; overflow-y: auto; }
+        .video-box { position: relative; flex: 1 1 45%; min-width: 65px; height: 48%; background: #222; border-radius: 6px; overflow: hidden; display: flex; justify-content: center; align-items: center; }
         .video-box video { width: 100%; height: 100%; object-fit: cover; }
         .video-label { position: absolute; bottom: 2px; left: 4px; background: rgba(0,0,0,0.6); color: white; font-size: 8px; padding: 1px 4px; border-radius: 3px; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         
-        .multi-call { width: 260px !important; height: 360px !important; }
-        .multi-call .video-box { height: 48% !important; }
-
-        .video-controls { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 6px; opacity: 0; transition: opacity 0.3s; background: rgba(0,0,0,0.2); pointer-events: none; }
+        .video-controls { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 6px; opacity: 0; transition: opacity 0.3s; background: rgba(0,0,0,0.3); pointer-events: none; }
         #video-container:hover .video-controls { opacity: 1; }
         .control-row { display: flex; justify-content: space-between; width: 100%; pointer-events: auto; }
         .v-btn { background: rgba(32, 44, 51, 0.9); border: none; color: white; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; }
         .v-btn.end-call { background: #ea0038; }
 
-        /* Floating Invitation Notification Layer */
+        /* Header Level Accept/Reject Banner Call Layout */
         #call-notification { display: none; position: absolute; top: 65px; left: 5%; width: 90%; background: #202c33; padding: 10px 15px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 1000; justify-content: space-between; align-items: center; color: white; border: 1px solid #00a884; }
         .call-actions-btn { display: flex; gap: 10px; }
         .c-act { padding: 6px 12px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: white; }
@@ -168,13 +167,12 @@
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('chat-box').style.display = 'flex';
             
-            // Tab close detection pipeline
             const userStatusRef = ref(db, `chat_rooms/${roomID}_users/${myName}`);
             set(ref(db, `chat_rooms/${roomID}_users/${myName}/online`), true);
             onDisconnect(userStatusRef).remove();
             
             window.addEventListener('beforeunload', () => {
-                push(ref(db, `group_calls/${roomID}/leave`), myName);
+                closeAllCalls();
                 remove(userStatusRef);
             });
 
@@ -250,36 +248,20 @@
         }
     };
 
-    // 🔥 HIGH-SECURITY ANTI-SCREENSHOT & 3-FINGER CAPTURE ENGINE
     function setupHardenedSecurity() {
         const container = document.getElementById("main-container");
-
-        const lockUI = () => {
-            container.classList.add("secure-blur");
-            triggerDatabaseAlert();
-        };
+        const lockUI = () => { container.classList.add("secure-blur"); triggerDatabaseAlert(); };
         const unlockUI = () => setTimeout(() => container.classList.remove("secure-blur"), 800);
 
-        // 1. Mobile Multi-Touch (3 Finger Gesture Tracking)
         document.addEventListener("touchstart", (e) => {
-            if (e.touches.length >= 3) { // 3 or more fingers on screen
-                container.classList.add("secure-hide"); // UI invisible fast out
-                triggerDatabaseAlert();
-            }
+            if (e.touches.length >= 3) { container.classList.add("secure-hide"); triggerDatabaseAlert(); }
         }, { passive: false });
+        document.addEventListener("touchend", () => { setTimeout(() => container.classList.remove("secure-hide"), 1000); });
 
-        document.addEventListener("touchend", () => {
-            setTimeout(() => container.classList.remove("secure-hide"), 1000);
-        });
-
-        // 2. Focus Loss & Background switching handlers
-        document.addEventListener("visibilitychange", () => {
-            if (document.hidden) lockUI(); else unlockUI();
-        });
+        document.addEventListener("visibilitychange", () => { if (document.hidden) lockUI(); else unlockUI(); });
         window.addEventListener("blur", lockUI);
         window.addEventListener("focus", unlockUI);
 
-        // 3. Desktop Shortcuts & Clipboard clear
         document.addEventListener("keyup", (e) => {
             if (e.key === "PrintScreen" || e.keyCode === 44) {
                 navigator.clipboard.writeText("🚫 Content Protected!");
@@ -296,14 +278,11 @@
 
     function triggerDatabaseAlert() {
         let now = Date.now();
-        if (now - lastAlertTime < 5000) return; // Spam prevention loop filter
+        if (now - lastAlertTime < 5000) return;
         lastAlertTime = now;
-
         push(ref(db, 'chat_rooms/' + roomID), {
-            user: myName,
-            content: `🚫 Alert: ${myName} ne screenshot / 3-finger gesture ki koshish ki!`,
-            type: 'alert',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            user: myName, content: `🚫 Alert: ${myName} ne screenshot / 3-finger gesture ki koshish ki!`,
+            type: 'alert', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         });
     }
 
@@ -311,9 +290,7 @@
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = (event) => {
-            update(ref(db, `chat_rooms/${roomID}_users/${myName}`), { pfp: event.target.result });
-        };
+        reader.onload = (event) => { update(ref(db, `chat_rooms/${roomID}_users/${myName}`), { pfp: event.target.result }); };
         reader.readAsDataURL(file);
     };
 
@@ -321,9 +298,7 @@
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = (event) => {
-            set(ref(db, `chat_rooms/${roomID}_wallpaper`), { img: event.target.result, changedBy: myName });
-        };
+        reader.onload = (event) => { set(ref(db, `chat_rooms/${roomID}_wallpaper`), { img: event.target.result, changedBy: myName }); };
         reader.readAsDataURL(file);
     };
 
@@ -356,7 +331,6 @@
     function renderMessage(msgID, data) {
         const container = document.getElementById('messages');
         if (document.getElementById(`msg-${msgID}`)) return;
-
         const div = document.createElement('div');
         div.id = `msg-${msgID}`;
         
@@ -371,14 +345,11 @@
 
         const isMe = data.user === myName;
         div.className = `msg ${isMe ? 'sent' : 'received'}`;
-        
         let htmlContent = data.type === 'text' ? `<span>${data.content}</span>` : `<img src="${data.content}">`;
         let tickHtml = isMe ? `<span class="tick ${data.seen ? 'seen' : ''}">${data.seen ? '✔️✔️' : '✔️'}</span>` : '';
-
         div.innerHTML = `<span class="msg-info">${isMe ? 'You' : data.user}</span>${htmlContent}<div class="msg-meta"><span>${data.time}</span>${tickHtml}</div>`;
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
-
         if (data.seen || data.user !== myName) startDeleteTimer(msgID);
     }
 
@@ -390,7 +361,7 @@
         }, 10000);
     }
 
-    // MULTI-USER CALL INTERFACES SETUP
+    // 📹 RE-ENGINEERED TRUE MULTI-USER WEBRTC CALL ENGINE
     async function initMedia() {
         if (!localStream) {
             localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode }, audio: true });
@@ -400,7 +371,6 @@
 
     function addVideoBox(id, stream, isLocal = false) {
         if(document.getElementById(`vid-box-${id}`)) return;
-        
         const grid = document.getElementById('video-grid');
         const box = document.createElement('div');
         box.className = 'video-box';
@@ -419,94 +389,97 @@
         box.appendChild(video);
         box.appendChild(label);
         grid.appendChild(box);
-
-        const totalUsers = grid.children.length;
-        const container = document.getElementById('video-container');
-        if(totalUsers > 1) container.classList.add('multi-call');
-        else container.classList.remove('multi-call');
     }
 
     async function startGroupCall() {
         await initMedia();
         document.getElementById('video-container').style.display = 'block';
-        const signalRef = push(ref(db, `group_calls/${roomID}/signals`));
-        set(signalRef, { type: "join-request", sender: myName });
+        // Sabhi users ko header notification trigger push kiya
+        set(ref(db, `group_calls/${roomID}/call_state`), { initiator: myName, ts: Date.now() });
     }
 
     function listenForGroupCallSignals() {
-        onChildAdded(ref(db, `group_calls/${roomID}/signals`), async (snapshot) => {
-            const data = snapshot.val();
-            if(!data || data.sender === myName) return;
+        // 1. Header Level Call Accept/Reject Broadcast System
+        onValue(ref(db, `group_calls/${roomID}/call_state`), async (snapshot) => {
+            const state = snapshot.val();
+            if (state && state.initiator !== myName) {
+                document.getElementById('caller-name').innerText = `📹 Incoming from ${state.initiator}...`;
+                document.getElementById('call-notification').style.display = 'flex';
+            } else if (!state) {
+                document.getElementById('call-notification').style.display = 'none';
+            }
+        });
 
-            if (data.type === "join-request") {
-                if(!localStream) {
-                    document.getElementById('caller-name').innerText = `${data.sender} is calling...`;
-                    document.getElementById('call-notification').style.display = 'flex';
-                } else {
-                    setupPeerConnection(data.sender, true);
+        // 2. Mesh Routing Core Signals Engine
+        onChildAdded(ref(db, `group_calls/${roomID}/signals/${myName}`), async (snapshot) => {
+            const data = snapshot.val();
+            const sender = snapshot.key;
+            if (!data) return;
+
+            if (data.type === "offer") {
+                await setupPeerConnection(sender, false);
+                await peerConnections[sender].setRemoteDescription(new RTCSessionDescription(data.offer));
+                const answer = await peerConnections[sender].createAnswer();
+                await peerConnections[sender].setLocalDescription(answer);
+                set(ref(db, `group_calls/${roomID}/signals/${sender}/${myName}`), { type: "answer", answer: answer });
+            } else if (data.type === "answer") {
+                if (peerConnections[sender]) {
+                    await peerConnections[sender].setRemoteDescription(new RTCSessionDescription(data.answer));
                 }
-            } else if (data.type === "offer" && data.target === myName) {
-                await setupPeerConnection(data.sender, false);
-                await peerConnections[data.sender].setRemoteDescription(new RTCSessionDescription(data.offer));
-                const answer = await peerConnections[data.sender].createAnswer();
-                await peerConnections[data.sender].setLocalDescription(answer);
-                
-                push(ref(db, `group_calls/${roomID}/signals`), {
-                    type: "answer", sender: myName, target: data.sender, answer: answer
-                });
-            } else if (data.type === "answer" && data.target === myName) {
-                if(peerConnections[data.sender]) {
-                    await peerConnections[data.sender].setRemoteDescription(new RTCSessionDescription(data.answer));
-                }
-            } else if (data.type === "ice-candidate" && data.target === myName) {
-                if(peerConnections[data.sender]) {
-                    await peerConnections[data.sender].addIceCandidate(new RTCIceCandidate(data.candidate));
+            } else if (data.type === "ice") {
+                if (peerConnections[sender] && data.candidate) {
+                    await peerConnections[sender].addIceCandidate(new RTCIceCandidate(data.candidate));
                 }
             }
         });
 
+        // Kisi user ke left hone par grid update process
         onChildAdded(ref(db, `group_calls/${roomID}/leave`), (snapshot) => {
             const leftUser = snapshot.val();
-            if(leftUser && leftUser !== myName) removeUserFromCall(leftUser);
+            if (leftUser && leftUser !== myName) removeUserFromCall(leftUser);
         });
     }
 
     async function setupPeerConnection(remoteUser, isInitiator) {
-        if(peerConnections[remoteUser]) return;
+        if (peerConnections[remoteUser]) return;
 
         const pc = new RTCPeerConnection(rtcConfig);
         peerConnections[remoteUser] = pc;
 
-        if (localStream) {
-            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-        }
+        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-        pc.ontrack = (event) => {
-            addVideoBox(remoteUser, event.streams[0]);
-        };
+        pc.ontrack = (event) => { addVideoBox(remoteUser, event.streams[0]); };
 
         pc.onicecandidate = (event) => {
             if (event.candidate) {
-                push(ref(db, `group_calls/${roomID}/signals`), {
-                    type: "ice-candidate", sender: myName, target: remoteUser, candidate: event.candidate.toJSON()
-                });
+                set(ref(db, `group_calls/${roomID}/signals/${remoteUser}/${myName}/ice`), { candidate: event.candidate.toJSON() });
             }
         };
 
         if (isInitiator) {
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
-            push(ref(db, `group_calls/${roomID}/signals`), {
-                type: "offer", sender: myName, target: remoteUser, offer: offer
-            });
+            set(ref(db, `group_calls/${roomID}/signals/${remoteUser}/${myName}`), { type: "offer", offer: offer });
         }
     }
 
+    // Header Accept Handler Setup
     document.getElementById('acceptCallBtn').onclick = async () => {
         document.getElementById('call-notification').style.display = 'none';
         await initMedia();
         document.getElementById('video-container').style.display = 'block';
-        push(ref(db, `group_calls/${roomID}/signals`), { type: "join-request", sender: myName });
+
+        // Online maujood baaki sabhi accept karne wale users ke node par call sync bheja
+        onValue(ref(db, `chat_rooms/${roomID}_users`), (snapshot) => {
+            const users = snapshot.val();
+            if(users) {
+                Object.keys(users).forEach(userKey => {
+                    if (userKey !== myName) {
+                        setupPeerConnection(userKey, true); // Create offer routing channels Mesh
+                    }
+                });
+            }
+        }, { onlyOnce: true });
     };
 
     document.getElementById('rejectCallBtn').onclick = () => {
@@ -514,16 +487,9 @@
     };
 
     function removeUserFromCall(user) {
-        if(peerConnections[user]) {
-            peerConnections[user].close();
-            delete peerConnections[user];
-        }
+        if (peerConnections[user]) { peerConnections[user].close(); delete peerConnections[user]; }
         const box = document.getElementById(`vid-box-${user}`);
-        if(box) box.remove();
-
-        const grid = document.getElementById('video-grid');
-        const container = document.getElementById('video-container');
-        if(grid.children.length <= 1) container.classList.remove('multi-call');
+        if (box) box.remove();
     }
 
     function closeAllCalls() {
@@ -531,18 +497,16 @@
         document.getElementById('call-notification').style.display = 'none';
         
         push(ref(db, `group_calls/${roomID}/leave`), myName);
+        remove(ref(db, `group_calls/${roomID}/signals/${myName}`));
+        
+        onValue(ref(db, `group_calls/${roomID}/signals`), (snapshot) => {
+            if(!snapshot.exists()) { remove(ref(db, `group_calls/${roomID}/call_state`)); }
+        }, { onlyOnce: true });
 
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-            localStream = null;
-        }
-
-        Object.keys(peerConnections).forEach(user => {
-            peerConnections[user].close();
-        });
+        if (localStream) { localStream.getTracks().forEach(track => track.stop()); localStream = null; }
+        Object.keys(peerConnections).forEach(user => { peerConnections[user].close(); });
         peerConnections = {};
         document.getElementById('video-grid').innerHTML = "";
-        document.getElementById('video-container').classList.remove('multi-call');
     }
 
     document.getElementById('startCallBtn').onclick = startGroupCall;
@@ -550,10 +514,7 @@
 
     document.getElementById('muteMicBtn').onclick = () => {
         isMuted = !isMuted;
-        if(localStream) {
-            localStream.getAudioTracks()[0].enabled = !isMuted;
-            document.getElementById('muteMicBtn').innerText = isMuted ? '🔇' : '🎤';
-        }
+        if(localStream) { localStream.getAudioTracks()[0].enabled = !isMuted; document.getElementById('muteMicBtn').innerText = isMuted ? '🔇' : '🎤'; }
     };
 
     document.getElementById('toggleCamBtn').onclick = async () => {
@@ -562,7 +523,6 @@
             localStream.getTracks().forEach(track => track.stop());
             localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode }, audio: true });
             document.getElementById(`vid-box-${myName}`).querySelector('video').srcObject = localStream;
-            
             Object.keys(peerConnections).forEach(user => {
                 const videoTrack = localStream.getVideoTracks()[0];
                 const sender = peerConnections[user].getSenders().find(s => s.track.kind === 'video');
@@ -571,7 +531,7 @@
         }
     };
 
-    // FLOATING CONTAINER DRAG PIPELINES
+    // FLOATING CONTAINER DRAG HANDLING HANDLERS
     const videoCont = document.getElementById("video-container");
     let isDragging = false, currentX, currentY, initialX, initialY, xOffset = 0, yOffset = 0;
 
@@ -583,11 +543,11 @@
     document.addEventListener("touchend", dragEnd);
 
     function dragStart(e) {
-        if (e.target.classList.contains('v-btn') || e.target.tagName === 'VIDEO') return; 
+        // Resize handle track area ya controls hone par drag cancel pipeline click skip control
+        if (e.target.classList.contains('v-btn') || e.target.tagName === 'VIDEO' || (e.offsetX > videoCont.clientWidth - 15 && e.offsetY > videoCont.clientHeight - 15)) return; 
         let clientX = e.type === "touchstart" ? e.touches[0].clientX : e.clientX;
         let clientY = e.type === "touchstart" ? e.touches[0].clientY : e.clientY;
-        initialX = clientX - xOffset;
-        initialY = clientY - yOffset;
+        initialX = clientX - xOffset; initialY = clientY - yOffset;
         isDragging = true;
     }
     function drag(e) {
@@ -595,10 +555,8 @@
             e.preventDefault();
             let clientX = e.type === "touchmove" ? e.touches[0].clientX : e.clientX;
             let clientY = e.type === "touchmove" ? e.touches[0].clientY : e.clientY;
-            currentX = clientX - initialX;
-            currentY = clientY - initialY;
-            xOffset = currentX;
-            yOffset = currentY;
+            currentX = clientX - initialX; currentY = clientY - initialY;
+            xOffset = currentX; yOffset = currentY;
             videoCont.style.transform = `translate(${currentX}px, ${currentY}px)`;
         }
     }
