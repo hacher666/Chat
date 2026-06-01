@@ -24,7 +24,7 @@
         #users-display-container { display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
         .user-row { display: flex; align-items: center; gap: 8px; font-size: 14px; }
         .avatar { width: 26px; height: 26px; background: #00a884; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; flex-shrink: 0; cursor: pointer; overflow: hidden; background-size: cover; background-position: center; border: 1px solid rgba(255,255,255,0.2); }
-        .header-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; display: flex; flex-direction: column; }
+        .header-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; display: flex; flex-direction: column; width: 100%; }
         
         .header-actions { display: flex; align-items: center; gap: 15px; }
 
@@ -50,7 +50,7 @@
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
         /* FLOATING VIDEO CALL CONTAINER */
-        #video-container { display: none; position: absolute; top: 75px; right: 15px; width: 180px; height: 260px; min-width: 150px; min-height: 200px; max-width: 400px; max-height: 550px; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.6); border: 2px solid #00a884; z-index: 999; cursor: move; padding: 4px; resize: both; }
+        #video-container { display: none; position: absolute; top: 75px; right: 15px; width: 180px; height: 260px; min-width: 150px; min-height: 200px; max-width: 400px; max-height: 550px; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.6); border: 2px solid #00a884; z-index: 999; padding: 4px; resize: both; }
         #video-container::after { content: "◢"; position: absolute; bottom: 0; right: 2px; color: #00a884; font-size: 12px; font-weight: bold; pointer-events: none; cursor: se-resize; }
 
         #video-grid { display: flex; flex-direction: column; gap: 4px; width: 100%; height: 100%; }
@@ -58,7 +58,7 @@
         .video-box video { width: 100%; height: 100%; object-fit: cover; }
         .video-label { position: absolute; bottom: 4px; left: 6px; background: rgba(0,0,0,0.6); color: white; font-size: 10px; padding: 1px 5px; border-radius: 3px; }
         
-        .video-controls { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 6px; opacity: 0; transition: opacity 0.3s; background: rgba(0,0,0,0.3); pointer-events: none; }
+        .video-controls { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 6px; opacity: 0; transition: opacity 0.3s; background: rgba(0,0,0,0.3); pointer-events: auto; }
         #video-container:hover .video-controls { opacity: 1; }
         .control-row { display: flex; justify-content: space-between; width: 100%; pointer-events: auto; }
         .v-btn { background: rgba(32, 44, 51, 0.9); border: none; color: white; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; }
@@ -169,12 +169,10 @@
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('chat-box').style.display = 'flex';
             
-            // Push Notification Permission Request
             if (Notification.permission !== "granted") {
                 Notification.requestPermission();
             }
 
-            // USER DISCONNECT AUTO-CLEANER (LEFT ENGINE)
             const userStatusRef = ref(db, `chat_rooms/${roomID}_users/${myName}`);
             set(userStatusRef, { online: true, pfp: "" });
             
@@ -188,38 +186,18 @@
 
             setupVoiceMessageEngine();
 
-            // ACTIVE USER REFRESH TRACKER
+            // ACTIVE USER REFRESH TRACKER & HEADER NAME MANAGER
             onValue(ref(db, `chat_rooms/${roomID}_users`), (snapshot) => {
                 const users = snapshot.val();
                 const container = document.getElementById('users-display-container');
                 container.innerHTML = ""; 
 
                 if (users) {
-                    Object.keys(users).forEach(userKey => {
-                        const userRow = document.createElement('div');
-                        userRow.className = 'user-row';
-                        const avatarDiv = document.createElement('div');
-                        avatarDiv.className = 'avatar';
-                        
-                        if(userKey === myName) {
-                            avatarDiv.onclick = () => document.getElementById('profile-input').click();
-                        }
-
-                        if (users[userKey] && users[userKey].pfp) {
-                            avatarDiv.style.backgroundImage = `url('${users[userKey].pfp}')`;
-                            avatarDiv.innerText = "";
-                        } else {
-                            avatarDiv.style.backgroundImage = "none";
-                            avatarDiv.innerText = userKey[0].toUpperCase();
-                        }
-
-                        const nameSpan = document.createElement('strong');
-                        nameSpan.innerText = userKey === myName ? `${userKey} (You)` : userKey;
-
-                        userRow.appendChild(avatarDiv);
-                        userRow.appendChild(nameSpan);
-                        container.appendChild(userRow);
-                    });
+                    const activeNames = Object.keys(users).map(userKey => userKey === myName ? `${userKey} (You)` : userKey);
+                    // Update header title directly with active users' names
+                    container.innerText = activeNames.join(", ");
+                } else {
+                    container.innerText = "Connecting Users...";
                 }
             });
             
@@ -230,7 +208,6 @@
                 if (data.user !== myName && !data.seen) {
                     update(ref(db, `chat_rooms/${roomID}/${msgID}`), { seen: true });
                     
-                    // 🔥 BACKGROUND BACKGROUND PUSH NOTIFICATION SYSTEM
                     if (document.hidden && Notification.permission === "granted") {
                         let notificationBody = "New Message Received";
                         if(data.type === 'text') notificationBody = data.content;
@@ -244,7 +221,6 @@
                             tag: 'vibe-chat-alert',
                             renotify: true
                         };
-                        
                         new Notification(`💬 ${data.user}`, options);
                     }
                 }
@@ -263,13 +239,11 @@
                 }
             });
 
-            // Handle deleted messages dynamically from other clients
             onValue(messagesRef, (snapshot) => {
                 const currentData = snapshot.val() || {};
                 const localMsgs = document.querySelectorAll('.msg');
                 localMsgs.forEach(msgEl => {
                     const id = msgEl.id.replace('msg-', '');
-                    // If message is deleted from Firebase node, clean it immediately from UI
                     if (!currentData[id] && !id.includes('_users') && !id.includes('_wallpaper')) {
                         msgEl.remove();
                     }
@@ -369,7 +343,6 @@
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
         
-        // 🔥 Trigger 15-second automatic self-destruct cycle for database and UI
         startDeleteTimer(msgID);
     }
 
@@ -378,10 +351,10 @@
             const el = document.getElementById(`msg-${msgID}`);
             if (el) el.remove();
             remove(ref(db, `chat_rooms/${roomID}/${msgID}`));
-        }, 15000); // 15 Seconds Timer Done!
+        }, 15000);
     }
 
-    // 📹 WEBRTC ENGINE PIPELINE (COMPLETED & FIXED SYNTAX ERROR)
+    // 📹 WEBRTC ENGINE PIPELINE & SIGNALING
     async function initMediaStream() {
         if (!localStream) {
             try {
@@ -422,9 +395,107 @@
         }
     }
 
+    // Dynamic Signaling Node References
+    function getCallRef() { return ref(db, `webrtc_call/${roomID}`); }
+
+    async function makeCall() {
+        const stream = await initMediaStream();
+        if (!stream) return;
+
+        rtcPeerConnection = new RTCPeerConnection(iceConfig);
+        stream.getTracks().forEach(track => rtcPeerConnection.addTrack(track, stream));
+
+        rtcPeerConnection.ontrack = (event) => {
+            setupVideoGridElement("remote-video", event.streams[0], "Remote User");
+        };
+
+        rtcPeerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                push(ref(db, `webrtc_call/${roomID}/ice_candidates/${myName}`), event.candidate.toJSON());
+            }
+        };
+
+        const offer = await rtcPeerConnection.createOffer();
+        await rtcPeerConnection.setLocalDescription(offer);
+
+        set(getCallRef(), {
+            caller: myName,
+            offer: { type: offer.type, sdp: offer.sdp },
+            status: "ringing"
+        });
+    }
+
+    async function handleIncomingOffer(callData) {
+        document.getElementById('caller-name').innerText = `Incoming Call From: ${callData.caller}`;
+        document.getElementById('call-notification').style.display = 'flex';
+
+        document.getElementById('acceptCallBtn').onclick = async () => {
+            document.getElementById('call-notification').style.display = 'none';
+            const stream = await initMediaStream();
+            if(!stream) return;
+
+            rtcPeerConnection = new RTCPeerConnection(iceConfig);
+            stream.getTracks().forEach(track => rtcPeerConnection.addTrack(track, stream));
+
+            rtcPeerConnection.ontrack = (event) => {
+                setupVideoGridElement("remote-video", event.streams[0], callData.caller);
+            };
+
+            rtcPeerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    push(ref(db, `webrtc_call/${roomID}/ice_candidates/${myName}`), event.candidate.toJSON());
+                }
+            };
+
+            await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
+            const answer = await rtcPeerConnection.createAnswer();
+            await rtcPeerConnection.setLocalDescription(answer);
+
+            update(getCallRef(), {
+                answer: { type: answer.type, sdp: answer.sdp },
+                status: "accepted"
+            });
+
+            // Listen for ICE Candidates from Caller
+            onChildAdded(ref(db, `webrtc_call/${roomID}/ice_candidates/${callData.caller}`), (snapshot) => {
+                if (snapshot.exists()) {
+                    rtcPeerConnection.addIceCandidate(new RTCIceCandidate(snapshot.val()));
+                }
+            });
+        };
+
+        document.getElementById('rejectCallBtn').onclick = () => {
+            document.getElementById('call-notification').style.display = 'none';
+            update(getCallRef(), { status: "rejected" });
+            setTimeout(() => remove(getCallRef()), 1000);
+        };
+    }
+
     function listenForWebRTCSignals() {
-        // Core WebRTC signalling logic placeholders or bindings can be safely put here
-        console.log("WebRTC Pipeline Signaling Ready on channel " + roomID);
+        onValue(getCallRef(), async (snapshot) => {
+            const callData = snapshot.val();
+            if (!callData) return;
+
+            // Scenario 1: Someone else is calling you
+            if (callData.status === "ringing" && callData.caller !== myName) {
+                handleIncomingOffer(callData);
+            } 
+            // Scenario 2: Receiver accepted your call
+            else if (callData.status === "accepted" && callData.caller === myName && callData.answer && rtcPeerConnection.signalingState === "have-local-offer") {
+                await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(callData.answer));
+                
+                // Listen for ICE Candidates from Receiver
+                onChildAdded(ref(db, `webrtc_call/${roomID}/ice_candidates/${Object.keys(callData.ice_candidates || {}).find(k => k !== myName)}`), (snapshot) => {
+                    if (snapshot.exists()) {
+                        rtcPeerConnection.addIceCandidate(new RTCIceCandidate(snapshot.val()));
+                    }
+                });
+            } 
+            // Scenario 3: Call Hung up or Rejected
+            else if (callData.status === "rejected" || callData.status === "ended") {
+                closeWebRTCCall();
+            }
+        });
     }
 
     function closeWebRTCCall() {
@@ -438,10 +509,31 @@
         }
         document.getElementById('video-container').style.display = 'none';
         document.getElementById('video-grid').innerHTML = '';
+        document.getElementById('call-notification').style.display = 'none';
+        update(getCallRef(), { status: "ended" });
+        setTimeout(() => remove(getCallRef()), 800);
     }
 
+    // Video Control Toggles (Mic/Camera Flip)
+    document.getElementById('muteMicBtn').onclick = () => {
+        if(localStream) {
+            isMuted = !isMuted;
+            localStream.getAudioTracks().forEach(track => track.enabled = !isMuted);
+            document.getElementById('muteMicBtn').innerText = isMuted ? "🔇" : "🎤";
+        }
+    };
+
+    document.getElementById('toggleCamBtn').onclick = async () => {
+        if(localStream) {
+            currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+            localStream.getVideoTracks().forEach(track => track.stop());
+            localStream = null;
+            await initMediaStream();
+        }
+    };
+
     document.getElementById('endCallBtn').onclick = closeWebRTCCall;
-    document.getElementById('startCallBtn').onclick = () => initMediaStream();
+    document.getElementById('startCallBtn').onclick = makeCall;
 </script>
 
 </body>
