@@ -397,7 +397,7 @@
 
         rtcPeerConnection.onicecandidate = (event) => {
             if (event.candidate) {
-                push(ref(db, `webrtc_call/${roomID}/ice_candidates/${myName}`), event.candidate.toJSON());
+                push(ref(db, `webrtc_call/${roomID}/ice_candidates`), event.candidate.toJSON());
             }
         };
 
@@ -444,7 +444,7 @@
 
             rtcPeerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
-                    push(ref(db, `webrtc_call/${roomID}/ice_candidates/${myName}`), event.candidate.toJSON());
+                    push(ref(db, `webrtc_call/${roomID}/ice_candidates`), event.candidate.toJSON());
                 }
             };
 
@@ -455,12 +455,6 @@
             update(getCallRef(), {
                 answer: { type: answer.type, sdp: answer.sdp },
                 status: "accepted"
-            });
-
-            onChildAdded(ref(db, `webrtc_call/${roomID}/ice_candidates/${callData.caller}`), (snapshot) => {
-                if (snapshot.exists() && rtcPeerConnection) {
-                    rtcPeerConnection.addIceCandidate(new RTCIceCandidate(snapshot.val())).catch(e => {});
-                }
             });
         };
 
@@ -491,16 +485,18 @@
                     showActiveCallControls();
                     startCallTimer();
                 }
-                
-                onChildAdded(ref(db, `webrtc_call/${roomID}/ice_candidates`), (snapshot) => {
-                    if (snapshot.key !== myName && rtcPeerConnection) {
-                        snapshot.forEach(candSnap => {
-                            rtcPeerConnection.addIceCandidate(new RTCIceCandidate(candSnap.val())).catch(e => {});
-                        });
+            } 
+            
+            // ICE Candidates synchronization for both users under a single node pool
+            if (callData.status === "ringing" || callData.status === "accepted") {
+                onChildAdded(ref(db, `webrtc_call/${roomID}/ice_candidates`), (candSnap) => {
+                    if (rtcPeerConnection && rtcPeerConnection.remoteDescription) {
+                        rtcPeerConnection.addIceCandidate(new RTCIceCandidate(candSnap.val())).catch(e => {});
                     }
                 });
-            } 
-            else if (callData.status === "rejected" || callData.status === "ended") {
+            }
+
+            if (callData.status === "rejected" || callData.status === "ended") {
                 closeWebRTCCall();
             }
         });
