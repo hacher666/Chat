@@ -194,7 +194,6 @@
 
                 if (users) {
                     const activeNames = Object.keys(users).map(userKey => userKey === myName ? `${userKey} (You)` : userKey);
-                    // Update header title directly with active users' names
                     container.innerText = activeNames.join(", ");
                 } else {
                     container.innerText = "Connecting Users...";
@@ -395,7 +394,6 @@
         }
     }
 
-    // Dynamic Signaling Node References
     function getCallRef() { return ref(db, `webrtc_call/${roomID}`); }
 
     async function makeCall() {
@@ -418,6 +416,8 @@
         const offer = await rtcPeerConnection.createOffer();
         await rtcPeerConnection.setLocalDescription(offer);
 
+        // Reset any existing old state first, then set fresh ringing state
+        await remove(getCallRef());
         set(getCallRef(), {
             caller: myName,
             offer: { type: offer.type, sdp: offer.sdp },
@@ -427,7 +427,7 @@
 
     async function handleIncomingOffer(callData) {
         document.getElementById('caller-name').innerText = `Incoming Call From: ${callData.caller}`;
-        document.getElementById('call-notification').style.display = 'flex';
+        document.getElementById('call-notification').style.display = 'flex'; // Triggers notification slideDown!
 
         document.getElementById('acceptCallBtn').onclick = async () => {
             document.getElementById('call-notification').style.display = 'none';
@@ -456,10 +456,9 @@
                 status: "accepted"
             });
 
-            // Listen for ICE Candidates from Caller
             onChildAdded(ref(db, `webrtc_call/${roomID}/ice_candidates/${callData.caller}`), (snapshot) => {
-                if (snapshot.exists()) {
-                    rtcPeerConnection.addIceCandidate(new RTCIceCandidate(snapshot.val()));
+                if (snapshot.exists() && rtcPeerConnection) {
+                    rtcPeerConnection.addIceCandidate(new RTCIceCandidate(snapshot.val())).catch(e => {});
                 }
             });
         };
@@ -467,31 +466,37 @@
         document.getElementById('rejectCallBtn').onclick = () => {
             document.getElementById('call-notification').style.display = 'none';
             update(getCallRef(), { status: "rejected" });
-            setTimeout(() => remove(getCallRef()), 1000);
+            setTimeout(() => remove(getCallRef()), 500);
         };
     }
 
     function listenForWebRTCSignals() {
         onValue(getCallRef(), async (snapshot) => {
             const callData = snapshot.val();
-            if (!callData) return;
+            
+            // Clean interface if call node is wiped or finished
+            if (!callData) {
+                if (document.getElementById('call-notification').style.display === 'flex') {
+                    document.getElementById('call-notification').style.display = 'none';
+                }
+                return;
+            }
 
-            // Scenario 1: Someone else is calling you
+            // Realtime filter conditions
             if (callData.status === "ringing" && callData.caller !== myName) {
                 handleIncomingOffer(callData);
             } 
-            // Scenario 2: Receiver accepted your call
-            else if (callData.status === "accepted" && callData.caller === myName && callData.answer && rtcPeerConnection.signalingState === "have-local-offer") {
+            else if (callData.status === "accepted" && callData.caller === myName && callData.answer && rtcPeerConnection && rtcPeerConnection.signalingState === "have-local-offer") {
                 await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(callData.answer));
                 
-                // Listen for ICE Candidates from Receiver
-                onChildAdded(ref(db, `webrtc_call/${roomID}/ice_candidates/${Object.keys(callData.ice_candidates || {}).find(k => k !== myName)}`), (snapshot) => {
-                    if (snapshot.exists()) {
-                        rtcPeerConnection.addIceCandidate(new RTCIceCandidate(snapshot.val()));
+                onChildAdded(ref(db, `webrtc_call/${roomID}/ice_candidates`), (snapshot) => {
+                    if (snapshot.key !== myName && rtcPeerConnection) {
+                        snapshot.forEach(candSnap => {
+                            rtcPeerConnection.addIceCandidate(new RTCIceCandidate(candSnap.val())).catch(e => {});
+                        });
                     }
                 });
             } 
-            // Scenario 3: Call Hung up or Rejected
             else if (callData.status === "rejected" || callData.status === "ended") {
                 closeWebRTCCall();
             }
@@ -510,8 +515,9 @@
         document.getElementById('video-container').style.display = 'none';
         document.getElementById('video-grid').innerHTML = '';
         document.getElementById('call-notification').style.display = 'none';
-        update(getCallRef(), { status: "ended" });
-        setTimeout(() => remove(getCallRef()), 800);
+        
+        // Wipe node cleanly so new session triggers a fresh event
+        remove(getCallRef());
     }
 
     // Video Control Toggles (Mic/Camera Flip)
