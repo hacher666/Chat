@@ -22,8 +22,6 @@
         .header-info { display: flex; align-items: center; gap: 12px; max-width: 70%; }
         
         #users-display-container { display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
-        .user-row { display: flex; align-items: center; gap: 8px; font-size: 14px; }
-        .avatar { width: 26px; height: 26px; background: #00a884; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; flex-shrink: 0; cursor: pointer; overflow: hidden; background-size: cover; background-position: center; border: 1px solid rgba(255,255,255,0.2); }
         .header-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; display: flex; flex-direction: column; width: 100%; }
         
         .header-actions { display: flex; align-items: center; gap: 15px; }
@@ -35,9 +33,6 @@
         .received { background: #202c33; align-self: flex-start; border-top-left-radius: 0; }
 
         .msg-info { font-size: 10px; display: block; margin-bottom: 3px; font-weight: bold; color: #34b7f1; }
-        .msg img { max-width: 100%; border-radius: 8px; margin-top: 5px; display: block; }
-        .msg audio { max-width: 100%; margin-top: 5px; display: block; outline: none; }
-        
         .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 3px; font-size: 10px; opacity: 0.6; margin-top: 4px; }
         .tick { font-size: 12px; color: #8696a0; }
         .tick.seen { color: #34b7f1; }
@@ -65,10 +60,10 @@
         .v-btn.end-call { background: #ea0038; }
 
         /* HEADER CALL NOTIFICATION PANEL */
-        #call-notification { display: none; position: absolute; top: 0; left: 0; width: 100%; background: #00a884; padding: 12px 20px; z-index: 10000; justify-content: space-between; align-items: center; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; font-weight: bold; animation: slideDown 0.25s ease-out; }
+        #call-notification { display: none; position: absolute; top: 0; left: 0; width: 100%; background: #00a884; padding: 15px 20px; z-index: 10000; justify-content: space-between; align-items: center; color: white; box-shadow: 0 6px 20px rgba(0,0,0,0.5); border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; font-weight: bold; animation: slideDown 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
         .call-actions-btn { display: flex; gap: 10px; }
-        .c-act { padding: 8px 16px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .c-act { padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; }
         .c-accept { background: #fff; color: #00a884; }
         .c-reject { background: #ea0038; color: white; }
     </style>
@@ -84,6 +79,7 @@
     </div>
 
     <div id="chat-box">
+        <!-- HEADER NOTIFICATION FOR INCOMING CALL -->
         <div id="call-notification">
             <span id="caller-name">Incoming Call...</span>
             <div class="call-actions-btn">
@@ -94,7 +90,6 @@
 
         <div class="chat-header">
             <div class="header-info">
-                <input type="file" id="profile-input" hidden accept="image/*">
                 <div class="header-text">
                     <div id="users-display-container">Connecting Users...</div>
                     <small style="color: #00a884; margin-top: 2px;" id="online-status">online</small>
@@ -102,8 +97,6 @@
             </div>
             
             <div class="header-actions">
-                <label for="wallpaper-input" class="icon-btn" style="color: #00a884; font-size: 20px; margin: 0;">🎨</label>
-                <input type="file" id="wallpaper-input" hidden accept="image/*">
                 <button class="icon-btn" id="startCallBtn" style="color: #00a884; font-size: 22px;">📹</button>
             </div>
         </div>
@@ -124,10 +117,7 @@
         </div>
 
         <div class="input-bar">
-            <label for="file-input" class="icon-btn">📎</label>
-            <input type="file" id="file-input" hidden accept="image/*">
             <input type="text" id="msg-input" placeholder="Type a message...">
-            <button class="icon-btn" id="voiceBtn" style="margin-right: 5px;">🎙️</button>
             <button class="icon-btn" id="sendBtn" style="color: #00a884;">➤</button>
         </div>
     </div>
@@ -155,10 +145,6 @@
     let currentFacingMode = "user"; 
     let isMuted = false;
 
-    let mediaRecorder = null;
-    let audioChunks = [];
-    let isRecording = false;
-
     const iceConfig = { iceServers: [{ urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"] }] };
 
     document.getElementById('loginBtn').onclick = () => {
@@ -169,12 +155,13 @@
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('chat-box').style.display = 'flex';
             
+            // Forcefully request system notification permission
             if (Notification.permission !== "granted") {
                 Notification.requestPermission();
             }
 
             const userStatusRef = ref(db, `chat_rooms/${roomID}_users/${myName}`);
-            set(userStatusRef, { online: true, pfp: "" });
+            set(userStatusRef, { online: true });
             
             onDisconnect(userStatusRef).remove();
             onDisconnect(ref(db, `webrtc_call/${roomID}`)).remove();
@@ -184,14 +171,10 @@
                 remove(userStatusRef);
             });
 
-            setupVoiceMessageEngine();
-
-            // ACTIVE USER REFRESH TRACKER & HEADER NAME MANAGER
+            // Active users monitor
             onValue(ref(db, `chat_rooms/${roomID}_users`), (snapshot) => {
                 const users = snapshot.val();
                 const container = document.getElementById('users-display-container');
-                container.innerHTML = ""; 
-
                 if (users) {
                     const activeNames = Object.keys(users).map(userKey => userKey === myName ? `${userKey} (You)` : userKey);
                     container.innerText = activeNames.join(", ");
@@ -206,54 +189,8 @@
                 const data = snapshot.val();
                 if (data.user !== myName && !data.seen) {
                     update(ref(db, `chat_rooms/${roomID}/${msgID}`), { seen: true });
-                    
-                    if (document.hidden && Notification.permission === "granted") {
-                        let notificationBody = "New Message Received";
-                        if(data.type === 'text') notificationBody = data.content;
-                        else if(data.type === 'image') notificationBody = "📷 Sent an image";
-                        else if(data.type === 'audio') notificationBody = "🎵 Sent a voice note";
-
-                        const options = {
-                            body: notificationBody,
-                            icon: 'https://cdn-icons-png.flaticon.com/512/1041/1041916.png', 
-                            vibrate: [200, 100, 200],
-                            tag: 'vibe-chat-alert',
-                            renotify: true
-                        };
-                        new Notification(`💬 ${data.user}`, options);
-                    }
                 }
                 renderMessage(msgID, data);
-            });
-
-            onChildChanged(messagesRef, (snapshot) => {
-                const msgID = snapshot.key;
-                const data = snapshot.val();
-                if (data.seen) {
-                    const tickElement = document.querySelector(`#msg-${msgID} .tick`);
-                    if (tickElement) {
-                        tickElement.classList.add('seen');
-                        tickElement.innerText = '✔️✔️';
-                    }
-                }
-            });
-
-            onValue(messagesRef, (snapshot) => {
-                const currentData = snapshot.val() || {};
-                const localMsgs = document.querySelectorAll('.msg');
-                localMsgs.forEach(msgEl => {
-                    const id = msgEl.id.replace('msg-', '');
-                    if (!currentData[id] && !id.includes('_users') && !id.includes('_wallpaper')) {
-                        msgEl.remove();
-                    }
-                });
-            });
-
-            onValue(ref(db, `chat_rooms/${roomID}_wallpaper`), (snapshot) => {
-                const wallpaperData = snapshot.val();
-                if (wallpaperData && wallpaperData.img) {
-                    document.getElementById('messages').style.backgroundImage = `url('${wallpaperData.img}')`;
-                }
             });
 
             listenForWebRTCSignals();
@@ -262,47 +199,12 @@
         }
     };
 
-    function setupVoiceMessageEngine() {
-        const voiceBtn = document.getElementById('voiceBtn');
-        voiceBtn.onclick = async () => {
-            if (!isRecording) {
-                audioChunks = [];
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    mediaRecorder = new MediaRecorder(stream);
-                    mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
-                    mediaRecorder.onstop = () => {
-                        const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                            push(ref(db, 'chat_rooms/' + roomID), {
-                                user: myName, content: reader.result, type: 'audio', seen: false,
-                                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                            });
-                        };
-                        reader.readAsDataURL(audioBlob);
-                        stream.getTracks().forEach(track => track.stop());
-                    };
-                    mediaRecorder.start();
-                    isRecording = true;
-                    voiceBtn.classList.add('recording-active');
-                } catch (err) {
-                    alert("Mic Access Denied!");
-                }
-            } else {
-                mediaRecorder.stop();
-                isRecording = false;
-                voiceBtn.classList.remove('recording-active');
-            }
-        };
-    }
-
     function sendMessage() {
         const input = document.getElementById('msg-input');
         const text = input.value.trim();
         if (!text) return;
         push(ref(db, 'chat_rooms/' + roomID), {
-            user: myName, content: text, type: 'text', seen: false,
+            user: myName, content: text, seen: false,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         });
         input.value = "";
@@ -310,50 +212,19 @@
     document.getElementById('sendBtn').onclick = sendMessage;
     document.getElementById('msg-input').onkeypress = (e) => { if(e.key === 'Enter') sendMessage(); };
 
-    document.getElementById('file-input').onchange = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            push(ref(db, 'chat_rooms/' + roomID), {
-                user: myName, content: event.target.result, type: 'image', seen: false,
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            });
-        };
-        reader.readAsDataURL(file);
-    };
-
     function renderMessage(msgID, data) {
         const container = document.getElementById('messages');
         if (document.getElementById(`msg-${msgID}`)) return;
         const div = document.createElement('div');
         div.id = `msg-${msgID}`;
-
         const isMe = data.user === myName;
         div.className = `msg ${isMe ? 'sent' : 'received'}`;
-        
-        let htmlContent = "";
-        if(data.type === 'text') htmlContent = `<span>${data.content}</span>`;
-        else if(data.type === 'image') htmlContent = `<img src="${data.content}">`;
-        else if(data.type === 'audio') htmlContent = `<audio src="${data.content}" controls></audio>`;
-
-        let tickHtml = isMe ? `<span class="tick ${data.seen ? 'seen' : ''}">${data.seen ? '✔️✔️' : '✔️'}</span>` : '';
-        div.innerHTML = `<span class="msg-info">${isMe ? 'You' : data.user}</span>${htmlContent}<div class="msg-meta"><span>${data.time}</span>${tickHtml}</div>`;
+        div.innerHTML = `<span class="msg-info">${isMe ? 'You' : data.user}</span><span>${data.content}</span><div class="msg-meta"><span>${data.time}</span></div>`;
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
-        
-        startDeleteTimer(msgID);
     }
 
-    function startDeleteTimer(msgID) {
-        setTimeout(() => {
-            const el = document.getElementById(`msg-${msgID}`);
-            if (el) el.remove();
-            remove(ref(db, `chat_rooms/${roomID}/${msgID}`));
-        }, 15000);
-    }
-
-    // 📹 WEBRTC ENGINE PIPELINE & SIGNALING - COMPLETELY REDESIGNED
+    // 📹 WEBRTC CORE IMPLEMENTATION
     async function initMediaStream() {
         if (!localStream) {
             try {
@@ -364,8 +235,9 @@
                 document.getElementById('video-container').style.display = 'block';
                 setupVideoGridElement("local-video", localStream, "You");
             } catch (err) {
-                console.error("Camera/Mic access denied: ", err);
-                alert("Could not access camera or microphone.");
+                console.error("Media Access Denied:", err);
+                alert("CRITICAL ERROR: Camera or Mic access blocked by browser settings. Please allow permission in site address bar!");
+                return null;
             }
         }
         return localStream;
@@ -398,13 +270,13 @@
 
     async function makeCall() {
         const stream = await initMediaStream();
-        if (!stream) return;
+        if (!stream) return; // Permission check trap
 
         rtcPeerConnection = new RTCPeerConnection(iceConfig);
         stream.getTracks().forEach(track => rtcPeerConnection.addTrack(track, stream));
 
         rtcPeerConnection.ontrack = (event) => {
-            setupVideoGridElement("remote-video", event.streams[0], "Connecting User...");
+            setupVideoGridElement("remote-video", event.streams[0], "Remote User");
         };
 
         rtcPeerConnection.onicecandidate = (event) => {
@@ -416,90 +288,81 @@
         const offer = await rtcPeerConnection.createOffer();
         await rtcPeerConnection.setLocalDescription(offer);
 
-        // Wipe absolute clean to ensure an event fire happens on remote end
+        // Immediate complete flash of the node to enforce remote dynamic updates
         await remove(getCallRef());
         
-        // Dynamic payload deployment
         set(getCallRef(), {
             caller: myName,
             offer: { type: offer.type, sdp: offer.sdp },
             status: "ringing",
-            timestamp: Date.now()
+            forceTrigger: Math.random() // Unique seed to bypass caching
         });
     }
 
-    async function handleIncomingOffer(callData) {
-        document.getElementById('caller-name').innerText = `Incoming Call From: ${callData.caller}`;
-        document.getElementById('call-notification').style.display = 'flex';
-
-        document.getElementById('acceptCallBtn').onclick = async () => {
-            document.getElementById('call-notification').style.display = 'none';
-            const stream = await initMediaStream();
-            if(!stream) return;
-
-            rtcPeerConnection = new RTCPeerConnection(iceConfig);
-            stream.getTracks().forEach(track => rtcPeerConnection.addTrack(track, stream));
-
-            rtcPeerConnection.ontrack = (event) => {
-                setupVideoGridElement("remote-video", event.streams[0], callData.caller);
-            };
-
-            rtcPeerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    push(ref(db, `webrtc_call/${roomID}/ice_candidates/${myName}`), event.candidate.toJSON());
-                }
-            };
-
-            await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
-            const answer = await rtcPeerConnection.createAnswer();
-            await rtcPeerConnection.setLocalDescription(answer);
-
-            update(getCallRef(), {
-                answer: { type: answer.type, sdp: answer.sdp },
-                status: "accepted"
-            });
-
-            // Target remote ICE pool extraction
-            onChildAdded(ref(db, `webrtc_call/${roomID}/ice_candidates/${callData.caller}`), (snapshot) => {
-                if (snapshot.exists() && rtcPeerConnection) {
-                    rtcPeerConnection.addIceCandidate(new RTCIceCandidate(snapshot.val())).catch(e => {});
-                }
-            });
-        };
-
-        document.getElementById('rejectCallBtn').onclick = () => {
-            document.getElementById('call-notification').style.display = 'none';
-            update(getCallRef(), { status: "rejected" });
-            setTimeout(() => remove(getCallRef()), 400);
-        };
-    }
-
     function listenForWebRTCSignals() {
-        // High fidelity state machine monitor
         onValue(getCallRef(), async (snapshot) => {
             const callData = snapshot.val();
             
             if (!callData) {
-                // UI recovery mode if node dropped
-                if (document.getElementById('call-notification').style.display === 'flex') {
-                    document.getElementById('call-notification').style.display = 'none';
-                }
+                document.getElementById('call-notification').style.display = 'none';
                 return;
             }
 
-            // Route handling filters
+            // Explicit state routing
             if (callData.status === "ringing" && callData.caller !== myName) {
-                handleIncomingOffer(callData);
+                // FORCE THE PANEL TO OPEN REARLESS OF EVENT CACHE
+                document.getElementById('caller-name').innerText = `Incoming Call From: ${callData.caller}`;
+                document.getElementById('call-notification').style.display = 'flex';
+
+                // Handle button inject triggers explicitly inside the state listener
+                document.getElementById('acceptCallBtn').onclick = async () => {
+                    document.getElementById('call-notification').style.display = 'none';
+                    const stream = await initMediaStream();
+                    if(!stream) return;
+
+                    rtcPeerConnection = new RTCPeerConnection(iceConfig);
+                    stream.getTracks().forEach(track => rtcPeerConnection.addTrack(track, stream));
+
+                    rtcPeerConnection.ontrack = (event) => {
+                        setupVideoGridElement("remote-video", event.streams[0], callData.caller);
+                    };
+
+                    rtcPeerConnection.onicecandidate = (event) => {
+                        if (event.candidate) {
+                            push(ref(db, `webrtc_call/${roomID}/ice_candidates/${myName}`), event.candidate.toJSON());
+                        }
+                    };
+
+                    await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
+                    const answer = await rtcPeerConnection.createAnswer();
+                    await rtcPeerConnection.setLocalDescription(answer);
+
+                    update(getCallRef(), {
+                        answer: { type: answer.type, sdp: answer.sdp },
+                        status: "accepted"
+                    });
+
+                    onChildAdded(ref(db, `webrtc_call/${roomID}/ice_candidates/${callData.caller}`), (snap) => {
+                        if (snap.exists() && rtcPeerConnection) {
+                            rtcPeerConnection.addIceCandidate(new RTCIceCandidate(snap.val())).catch(e => {});
+                        }
+                    });
+                };
+
+                document.getElementById('rejectCallBtn').onclick = () => {
+                    document.getElementById('call-notification').style.display = 'none';
+                    update(getCallRef(), { status: "rejected" });
+                    setTimeout(() => remove(getCallRef()), 300);
+                };
             } 
             else if (callData.status === "accepted" && callData.caller === myName && callData.answer && rtcPeerConnection) {
                 if(rtcPeerConnection.signalingState === "have-local-offer") {
                     await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(callData.answer));
                 }
                 
-                // Track candidate allocations
-                onChildAdded(ref(db, `webrtc_call/${roomID}/ice_candidates`), (snapshot) => {
-                    if (snapshot.key !== myName && rtcPeerConnection) {
-                        snapshot.forEach(candSnap => {
+                onChildAdded(ref(db, `webrtc_call/${roomID}/ice_candidates`), (snap) => {
+                    if (snap.key !== myName && rtcPeerConnection) {
+                        snap.forEach(candSnap => {
                             rtcPeerConnection.addIceCandidate(new RTCIceCandidate(candSnap.val())).catch(e => {});
                         });
                     }
@@ -523,8 +386,6 @@
         document.getElementById('video-container').style.display = 'none';
         document.getElementById('video-grid').innerHTML = '';
         document.getElementById('call-notification').style.display = 'none';
-        
-        // Full atomic deletion
         remove(getCallRef());
     }
 
