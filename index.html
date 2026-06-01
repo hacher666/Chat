@@ -374,11 +374,13 @@
     }
 
     async function makeCall() {
+        // Clear previous stale calls instantly
+        await remove(getCallRef());
+        
         const stream = await initAudioStream();
         if (!stream) return;
 
         document.getElementById('caller-name').innerText = "Calling...";
-        
         const wrapper = document.getElementById('call-controls-wrapper');
         wrapper.innerHTML = `<button class="c-act c-end" id="headerCancelCallBtn">📞</button>`;
         document.getElementById('headerCancelCallBtn').onclick = closeWebRTCCall;
@@ -403,8 +405,6 @@
 
         const offer = await rtcPeerConnection.createOffer();
         await rtcPeerConnection.setLocalDescription(offer);
-
-        await remove(getCallRef());
         
         set(getCallRef(), {
             caller: myName,
@@ -416,7 +416,6 @@
 
     async function handleIncomingOffer(callData) {
         document.getElementById('caller-name').innerText = `Incoming Call: ${callData.caller}`;
-        
         const wrapper = document.getElementById('call-controls-wrapper');
         wrapper.innerHTML = `
             <button class="c-act c-accept" id="acceptCallBtn">Accept</button>
@@ -469,6 +468,7 @@
         onValue(getCallRef(), async (snapshot) => {
             const callData = snapshot.val();
             
+            // UI visibility switch fixed on clean state reset
             if (!callData) {
                 if (document.getElementById('call-notification').style.display === 'flex' && !callTimerInterval) {
                     document.getElementById('call-notification').style.display = 'none';
@@ -476,6 +476,7 @@
                 return;
             }
 
+            // Realtime conditional branching fixed
             if (callData.status === "ringing" && callData.caller !== myName) {
                 handleIncomingOffer(callData);
             } 
@@ -487,7 +488,6 @@
                 }
             } 
             
-            // ICE Candidates synchronization for both users under a single node pool
             if (callData.status === "ringing" || callData.status === "accepted") {
                 onChildAdded(ref(db, `webrtc_call/${roomID}/ice_candidates`), (candSnap) => {
                     if (rtcPeerConnection && rtcPeerConnection.remoteDescription) {
