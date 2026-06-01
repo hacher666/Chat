@@ -19,7 +19,7 @@
         /* Chat Window UI */
         #chat-box { display: none; flex-direction: column; height: 100%; position: relative; }
         .chat-header { padding: 15px; background: #202c33; color: white; display: flex; align-items: center; justify-content: space-between; z-index: 10; position: relative; }
-        .header-info { display: flex; align-items: center; gap: 12px; max-width: 70%; }
+        .header-info { display: flex; align-items: center; gap: 12px; max-width: 50%; }
         
         #users-display-container { display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
         .header-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; display: flex; flex-direction: column; width: 100%; }
@@ -48,26 +48,22 @@
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
         /* HEADER CALL NOTIFICATION & STATUS PANEL */
-        #call-notification { display: none; position: absolute; top: 0; left: 0; width: 100%; background: #00a884; padding: 12px 20px; z-index: 10000; justify-content: space-between; align-items: center; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; font-weight: bold; animation: slideDown 0.25s ease-out; }
+        #call-notification { display: none; position: absolute; top: 0; left: 0; width: 100%; background: #00a884; padding: 12px 15px; z-index: 10000; justify-content: space-between; align-items: center; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; font-weight: bold; animation: slideDown 0.25s ease-out; }
         @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
-        .call-actions-btn { display: flex; gap: 10px; align-items: center; }
-        .c-act { padding: 8px 16px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .call-actions-btn { display: flex; gap: 8px; align-items: center; }
+        .c-act { padding: 6px 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .c-accept { background: #fff; color: #00a884; }
         .c-reject { background: #ea0038; color: white; }
-        .c-mute { background: rgba(255, 255, 255, 0.2); color: white; font-size: 16px; width: 36px; height: 36px; border-radius: 50%; padding: 0; }
-        .c-video { background: rgba(255, 255, 255, 0.2); color: white; font-size: 16px; width: 36px; height: 36px; border-radius: 50%; padding: 0; }
-        .c-flip { background: #34b7f1; color: white; font-size: 16px; width: 36px; height: 36px; border-radius: 50%; padding: 0; display: none; }
-        .c-end { background: #ea0038; color: white; font-size: 16px; width: 36px; height: 36px; border-radius: 50%; padding: 0; }
+        .c-mute { background: rgba(255, 255, 255, 0.2); color: white; font-size: 14px; width: 34px; height: 34px; border-radius: 50%; padding: 0; }
+        .c-video { background: rgba(255, 255, 255, 0.2); color: white; font-size: 14px; width: 34px; height: 34px; border-radius: 50%; padding: 0; }
+        .c-flip { background: #34b7f1; color: white; font-size: 14px; width: 34px; height: 34px; border-radius: 50%; padding: 0; display: none; }
+        .c-end { background: #ea0038; color: white; font-size: 14px; width: 34px; height: 34px; border-radius: 50%; padding: 0; }
 
-        /* REALTIME DYNAMIC VIDEO CALL WINDOWS */
-        #video-grid { display: none; position: absolute; top: 75px; left: 10px; right: 10px; bottom: 70px; background: rgba(11, 20, 26, 0.95); z-index: 999; border-radius: 12px; overflow: hidden; flex-direction: column; gap: 10px; padding: 10px; }
-        .video-box { width: 100%; height: 50%; background: #202c33; border-radius: 10px; overflow: hidden; position: relative; border: 1px solid #3b4a54; }
+        /* FLOATING COMPACT VIDEO PANEL OVERLAY */
+        #video-grid { display: none; position: absolute; bottom: 75px; right: 15px; width: 140px; height: 210px; z-index: 999; flex-direction: column; gap: 6px; pointer-events: none; }
+        .video-box { width: 100%; height: 102px; background: #202c33; border-radius: 8px; overflow: hidden; position: relative; border: 2px solid #00a884; box-shadow: 0 4px 12px rgba(0,0,0,0.5); pointer-events: auto; }
         .video-box video { width: 100%; height: 100%; object-fit: cover; }
-        .video-label { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; }
-        
-        /* Local floating mini window arrangement */
-        #local-video-box { height: 40%; }
-        #remote-video-box { height: 60%; }
+        .video-label { position: absolute; bottom: 4px; left: 4px; background: rgba(0,0,0,0.6); color: white; padding: 1px 4px; border-radius: 3px; font-size: 9px; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     </style>
 </head>
 <body>
@@ -84,7 +80,7 @@
         <div id="video-grid">
             <div class="video-box" id="remote-video-box">
                 <video id="remoteVideo" autoplay playsinline></video>
-                <div class="video-label" id="remote-user-label">Remote User</div>
+                <div class="video-label" id="remote-user-label">User</div>
             </div>
             <div class="video-box" id="local-video-box">
                 <video id="localVideo" autoplay playsinline muted></video>
@@ -149,7 +145,7 @@
     let rtcPeerConnection = null; 
     let isMuted = false;
     let isVideoOn = false;
-    let currentFacingMode = "user"; // Front camera by default
+    let currentFacingMode = "user"; 
     let callTimerInterval = null;
 
     let mediaRecorder = null;
@@ -389,15 +385,17 @@
             <button class="c-act c-end" id="headerEndCallBtn">📞</button>
         `;
         
+        // Mute/Unmute Functional Check
         document.getElementById('headerMuteBtn').onclick = () => {
             if(localStream) {
                 isMuted = !isMuted;
                 localStream.getAudioTracks().forEach(track => track.enabled = !isMuted);
                 document.getElementById('headerMuteBtn').innerText = isMuted ? "🔇" : "🎤";
+                document.getElementById('headerMuteBtn').style.background = isMuted ? "#ea0038" : "rgba(255, 255, 255, 0.2)";
             }
         };
 
-        // Video Toggle Feature Code Block
+        // Resizable & Floating Window Toggle Code Block
         document.getElementById('headerVideoBtn').onclick = async () => {
             if (!isVideoOn) {
                 try {
@@ -417,7 +415,6 @@
                             videoSender.replaceTrack(videoTrack);
                         } else {
                             rtcPeerConnection.addTrack(videoTrack, localStream);
-                            // Renegotiate track attachment
                             const offer = await rtcPeerConnection.createOffer();
                             await rtcPeerConnection.setLocalDescription(offer);
                             update(getCallRef(), { offer: { type: offer.type, sdp: offer.sdp } });
@@ -427,12 +424,11 @@
                     isVideoOn = true;
                     document.getElementById('headerVideoBtn').style.background = "#00a884";
                     document.getElementById('video-grid').style.display = 'flex';
-                    document.getElementById('headerFlipBtn').style.display = 'block'; // Show Flip Camera button
+                    document.getElementById('headerFlipBtn').style.display = 'block'; 
                 } catch(e) {
                     alert("Camera device access denied!");
                 }
             } else {
-                // Stop camera track pipeline
                 localStream.getVideoTracks().forEach(track => {
                     track.stop();
                     localStream.removeTrack(track);
@@ -441,11 +437,10 @@
                 isVideoOn = false;
                 document.getElementById('headerVideoBtn').style.background = "rgba(255, 255, 255, 0.2)";
                 document.getElementById('video-grid').style.display = 'none';
-                document.getElementById('headerFlipBtn').style.display = 'none'; // Hide Flip Camera button
+                document.getElementById('headerFlipBtn').style.display = 'none'; 
             }
         };
 
-        // Flip Camera Feature Code Block
         document.getElementById('headerFlipBtn').onclick = async () => {
             if (!isVideoOn) return;
             currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
@@ -608,7 +603,6 @@
                 }
             } 
             
-            // Dynamic SDP renegotiation check for on-the-fly tracks injection
             if(callData.status === "accepted" && callData.caller !== myName && callData.offer && rtcPeerConnection) {
                 if(rtcPeerConnection.signalingState === "stable") {
                     await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
