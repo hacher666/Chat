@@ -374,8 +374,8 @@
     }
 
     async function makeCall() {
-        // Clear previous stale calls instantly
-        await remove(getCallRef());
+        // Fix: Removed async await block loop of remove node
+        remove(getCallRef());
         
         const stream = await initAudioStream();
         if (!stream) return;
@@ -391,10 +391,14 @@
         stream.getTracks().forEach(track => rtcPeerConnection.addTrack(track, stream));
 
         rtcPeerConnection.ontrack = (event) => {
-            const remoteAudio = document.createElement('audio');
-            remoteAudio.autoplay = true;
+            let remoteAudio = document.getElementById('remoteAudioPlayer');
+            if(!remoteAudio) {
+                remoteAudio = document.createElement('audio');
+                remoteAudio.id = 'remoteAudioPlayer';
+                remoteAudio.autoplay = true;
+                document.body.appendChild(remoteAudio);
+            }
             remoteAudio.srcObject = event.streams[0];
-            document.body.appendChild(remoteAudio); 
         };
 
         rtcPeerConnection.onicecandidate = (event) => {
@@ -435,10 +439,14 @@
             stream.getTracks().forEach(track => rtcPeerConnection.addTrack(track, stream));
 
             rtcPeerConnection.ontrack = (event) => {
-                const remoteAudio = document.createElement('audio');
-                remoteAudio.autoplay = true;
+                let remoteAudio = document.getElementById('remoteAudioPlayer');
+                if(!remoteAudio) {
+                    remoteAudio = document.createElement('audio');
+                    remoteAudio.id = 'remoteAudioPlayer';
+                    remoteAudio.autoplay = true;
+                    document.body.appendChild(remoteAudio);
+                }
                 remoteAudio.srcObject = event.streams[0];
-                document.body.appendChild(remoteAudio);
             };
 
             rtcPeerConnection.onicecandidate = (event) => {
@@ -460,7 +468,7 @@
         document.getElementById('rejectCallBtn').onclick = () => {
             document.getElementById('call-notification').style.display = 'none';
             update(getCallRef(), { status: "rejected" });
-            setTimeout(() => remove(getCallRef()), 400);
+            setTimeout(() => remove(getCallRef()), 300);
         };
     }
 
@@ -468,7 +476,6 @@
         onValue(getCallRef(), async (snapshot) => {
             const callData = snapshot.val();
             
-            // UI visibility switch fixed on clean state reset
             if (!callData) {
                 if (document.getElementById('call-notification').style.display === 'flex' && !callTimerInterval) {
                     document.getElementById('call-notification').style.display = 'none';
@@ -476,7 +483,6 @@
                 return;
             }
 
-            // Realtime conditional branching fixed
             if (callData.status === "ringing" && callData.caller !== myName) {
                 handleIncomingOffer(callData);
             } 
@@ -488,8 +494,10 @@
                 }
             } 
             
-            if (callData.status === "ringing" || callData.status === "accepted") {
-                onChildAdded(ref(db, `webrtc_call/${roomID}/ice_candidates`), (candSnap) => {
+            // Candidate dynamic injection bug fixed with active session state tracking
+            if ((callData.status === "ringing" || callData.status === "accepted") && rtcPeerConnection && rtcPeerConnection.remoteDescription) {
+                const candidatesRef = ref(db, `webrtc_call/${roomID}/ice_candidates`);
+                onChildAdded(candidatesRef, (candSnap) => {
                     if (rtcPeerConnection && rtcPeerConnection.remoteDescription) {
                         rtcPeerConnection.addIceCandidate(new RTCIceCandidate(candSnap.val())).catch(e => {});
                     }
@@ -516,8 +524,8 @@
             rtcPeerConnection = null;
         }
         
-        const audioElements = document.querySelectorAll('audio:not([controls])');
-        audioElements.forEach(el => el.remove());
+        const remoteAudio = document.getElementById('remoteAudioPlayer');
+        if(remoteAudio) remoteAudio.remove();
 
         document.getElementById('call-notification').style.display = 'none';
         isMuted = false;
