@@ -378,8 +378,12 @@
         if (!stream) return;
 
         document.getElementById('caller-name').innerText = "Calling...";
+        
+        const wrapper = document.getElementById('call-controls-wrapper');
+        wrapper.innerHTML = `<button class="c-act c-end" id="headerCancelCallBtn">📞</button>`;
+        document.getElementById('headerCancelCallBtn').onclick = closeWebRTCCall;
+        
         document.getElementById('call-notification').style.display = 'flex';
-        showActiveCallControls();
 
         rtcPeerConnection = new RTCPeerConnection(iceConfig);
         stream.getTracks().forEach(track => rtcPeerConnection.addTrack(track, stream));
@@ -412,13 +416,14 @@
 
     async function handleIncomingOffer(callData) {
         document.getElementById('caller-name').innerText = `Incoming Call: ${callData.caller}`;
-        document.getElementById('call-notification').style.display = 'flex';
         
         const wrapper = document.getElementById('call-controls-wrapper');
         wrapper.innerHTML = `
             <button class="c-act c-accept" id="acceptCallBtn">Accept</button>
             <button class="c-act c-reject" id="rejectCallBtn">Reject</button>
         `;
+        
+        document.getElementById('call-notification').style.display = 'flex';
 
         document.getElementById('acceptCallBtn').onclick = async () => {
             const stream = await initAudioStream();
@@ -483,6 +488,7 @@
             else if (callData.status === "accepted" && callData.caller === myName && callData.answer && rtcPeerConnection) {
                 if(rtcPeerConnection.signalingState === "have-local-offer") {
                     await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(callData.answer));
+                    showActiveCallControls();
                     startCallTimer();
                 }
                 
@@ -514,7 +520,6 @@
             rtcPeerConnection = null;
         }
         
-        // Remove any created audio tags from body
         const audioElements = document.querySelectorAll('audio:not([controls])');
         audioElements.forEach(el => el.remove());
 
