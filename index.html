@@ -353,7 +353,7 @@
         }, 15000);
     }
 
-    // 📹 WEBRTC ENGINE PIPELINE & SIGNALING
+    // 📹 WEBRTC ENGINE PIPELINE & SIGNALING - COMPLETELY REDESIGNED
     async function initMediaStream() {
         if (!localStream) {
             try {
@@ -404,7 +404,7 @@
         stream.getTracks().forEach(track => rtcPeerConnection.addTrack(track, stream));
 
         rtcPeerConnection.ontrack = (event) => {
-            setupVideoGridElement("remote-video", event.streams[0], "Remote User");
+            setupVideoGridElement("remote-video", event.streams[0], "Connecting User...");
         };
 
         rtcPeerConnection.onicecandidate = (event) => {
@@ -416,18 +416,21 @@
         const offer = await rtcPeerConnection.createOffer();
         await rtcPeerConnection.setLocalDescription(offer);
 
-        // Reset any existing old state first, then set fresh ringing state
+        // Wipe absolute clean to ensure an event fire happens on remote end
         await remove(getCallRef());
+        
+        // Dynamic payload deployment
         set(getCallRef(), {
             caller: myName,
             offer: { type: offer.type, sdp: offer.sdp },
-            status: "ringing"
+            status: "ringing",
+            timestamp: Date.now()
         });
     }
 
     async function handleIncomingOffer(callData) {
         document.getElementById('caller-name').innerText = `Incoming Call From: ${callData.caller}`;
-        document.getElementById('call-notification').style.display = 'flex'; // Triggers notification slideDown!
+        document.getElementById('call-notification').style.display = 'flex';
 
         document.getElementById('acceptCallBtn').onclick = async () => {
             document.getElementById('call-notification').style.display = 'none';
@@ -456,6 +459,7 @@
                 status: "accepted"
             });
 
+            // Target remote ICE pool extraction
             onChildAdded(ref(db, `webrtc_call/${roomID}/ice_candidates/${callData.caller}`), (snapshot) => {
                 if (snapshot.exists() && rtcPeerConnection) {
                     rtcPeerConnection.addIceCandidate(new RTCIceCandidate(snapshot.val())).catch(e => {});
@@ -466,29 +470,33 @@
         document.getElementById('rejectCallBtn').onclick = () => {
             document.getElementById('call-notification').style.display = 'none';
             update(getCallRef(), { status: "rejected" });
-            setTimeout(() => remove(getCallRef()), 500);
+            setTimeout(() => remove(getCallRef()), 400);
         };
     }
 
     function listenForWebRTCSignals() {
+        // High fidelity state machine monitor
         onValue(getCallRef(), async (snapshot) => {
             const callData = snapshot.val();
             
-            // Clean interface if call node is wiped or finished
             if (!callData) {
+                // UI recovery mode if node dropped
                 if (document.getElementById('call-notification').style.display === 'flex') {
                     document.getElementById('call-notification').style.display = 'none';
                 }
                 return;
             }
 
-            // Realtime filter conditions
+            // Route handling filters
             if (callData.status === "ringing" && callData.caller !== myName) {
                 handleIncomingOffer(callData);
             } 
-            else if (callData.status === "accepted" && callData.caller === myName && callData.answer && rtcPeerConnection && rtcPeerConnection.signalingState === "have-local-offer") {
-                await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(callData.answer));
+            else if (callData.status === "accepted" && callData.caller === myName && callData.answer && rtcPeerConnection) {
+                if(rtcPeerConnection.signalingState === "have-local-offer") {
+                    await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(callData.answer));
+                }
                 
+                // Track candidate allocations
                 onChildAdded(ref(db, `webrtc_call/${roomID}/ice_candidates`), (snapshot) => {
                     if (snapshot.key !== myName && rtcPeerConnection) {
                         snapshot.forEach(candSnap => {
@@ -516,11 +524,10 @@
         document.getElementById('video-grid').innerHTML = '';
         document.getElementById('call-notification').style.display = 'none';
         
-        // Wipe node cleanly so new session triggers a fresh event
+        // Full atomic deletion
         remove(getCallRef());
     }
 
-    // Video Control Toggles (Mic/Camera Flip)
     document.getElementById('muteMicBtn').onclick = () => {
         if(localStream) {
             isMuted = !isMuted;
