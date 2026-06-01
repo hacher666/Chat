@@ -59,11 +59,14 @@
         .c-flip { background: #34b7f1; color: white; font-size: 14px; width: 34px; height: 34px; border-radius: 50%; padding: 0; display: none; }
         .c-end { background: #ea0038; color: white; font-size: 14px; width: 34px; height: 34px; border-radius: 50%; padding: 0; }
 
-        /* FLOATING COMPACT VIDEO PANEL OVERLAY */
-        #video-grid { display: none; position: absolute; bottom: 75px; right: 15px; width: 140px; height: 210px; z-index: 999; flex-direction: column; gap: 6px; pointer-events: none; }
-        .video-box { width: 100%; height: 102px; background: #202c33; border-radius: 8px; overflow: hidden; position: relative; border: 2px solid #00a884; box-shadow: 0 4px 12px rgba(0,0,0,0.5); pointer-events: auto; }
-        .video-box video { width: 100%; height: 100%; object-fit: cover; }
-        .video-label { position: absolute; bottom: 4px; left: 4px; background: rgba(0,0,0,0.6); color: white; padding: 1px 4px; border-radius: 3px; font-size: 9px; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        /* HIGH-TECH MOVABLE & RESIZABLE OVERLAY WINDOW */
+        #video-grid { display: none; position: absolute; bottom: 75px; right: 15px; width: 140px; height: 210px; z-index: 999; flex-direction: column; gap: 4px; background: rgba(0,0,0,0.3); border-radius: 10px; padding: 4px; border: 2px dashed #00a884; box-shadow: 0 10px 25px rgba(0,0,0,0.6); cursor: move; touch-action: none; resize: both; overflow: auto; min-width: 100px; min-height: 150px; max-width: 320px; max-height: 480px; }
+        .video-box { width: 100%; height: calc(50% - 2px); background: #202c33; border-radius: 6px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1); }
+        .video-box video { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+        .video-label { position: absolute; bottom: 4px; left: 4px; background: rgba(0,0,0,0.6); color: white; padding: 1px 4px; border-radius: 3px; font-size: 9px; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
+        
+        /* Custom scrollbar to hide native resize layout handles */
+        #video-grid::-webkit-resizer { background: #00a884; border-radius: 50%; border: 3px solid #111b21; }
     </style>
 </head>
 <body>
@@ -178,6 +181,7 @@
             });
 
             setupVoiceMessageEngine();
+            setupFloatingWindowControls(); // Boot floating drag handlers safely
 
             onValue(ref(db, `chat_rooms/${roomID}_users`), (snapshot) => {
                 const users = snapshot.val();
@@ -253,6 +257,51 @@
             alert("Name and Room Code Required!");
         }
     };
+
+    // 👆 TOUCH & MOUSE MOVE IMPLEMENTATION PIPELINE FOR THE FLOATING BOX
+    function setupFloatingWindowControls() {
+        const el = document.getElementById("video-grid");
+        let isDragging = false;
+        let offsetX = 0, offsetY = 0;
+
+        const startDrag = (e) => {
+            // Stop drag event if user clicks native resize bottom-right corner handles
+            const rect = el.getBoundingClientRect();
+            const x = (e.clientX || e.touches[0].clientX) - rect.left;
+            const y = (e.clientY || e.touches[0].clientY) - rect.top;
+            
+            if (x > rect.width - 20 && y > rect.height - 20) return; 
+
+            isDragging = true;
+            offsetX = (e.clientX || e.touches[0].clientX) - el.offsetLeft;
+            offsetY = (e.clientY || e.touches[0].clientY) - el.offsetTop;
+        };
+
+        const doDrag = (e) => {
+            if (!isDragging) return;
+            e.preventDefault();
+            const clientX = e.clientX || e.touches[0].clientX;
+            const clientY = e.clientY || e.touches[0].clientY;
+            
+            // Boundary limitations clamp configuration to lock within chat frame
+            let left = clientX - offsetX;
+            let top = clientY - offsetY;
+
+            el.style.left = `${left}px`;
+            el.style.top = `${top}px`;
+            el.style.bottom = 'auto';
+            el.style.right = 'auto';
+        };
+
+        const stopDrag = () => { isDragging = false; };
+
+        el.addEventListener("mousedown", startDrag);
+        el.addEventListener("touchstart", startDrag, { passive: false });
+        window.addEventListener("mousemove", doDrag);
+        window.addEventListener("touchmove", doDrag, { passive: false });
+        window.addEventListener("mouseup", stopDrag);
+        window.addEventListener("touchend", stopDrag);
+    }
 
     function setupVoiceMessageEngine() {
         const voiceBtn = document.getElementById('voiceBtn');
@@ -345,7 +394,6 @@
         }, 15000);
     }
 
-    // 🎙️ WEBRTC VIDEO/AUDIO STREAM ENGINE PIPELINE
     async function initAudioStream() {
         if (!localStream) {
             try {
@@ -385,7 +433,6 @@
             <button class="c-act c-end" id="headerEndCallBtn">📞</button>
         `;
         
-        // Mute/Unmute Functional Check
         document.getElementById('headerMuteBtn').onclick = () => {
             if(localStream) {
                 isMuted = !isMuted;
@@ -395,7 +442,6 @@
             }
         };
 
-        // Resizable & Floating Window Toggle Code Block
         document.getElementById('headerVideoBtn').onclick = async () => {
             if (!isVideoOn) {
                 try {
