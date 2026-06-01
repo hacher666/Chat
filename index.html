@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vibe Chat | Live Call Fix</title>
+    <title>Vibe Chat | Live Handshake</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0b141a; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -33,7 +33,7 @@
         .input-bar { padding: 10px; background: #202c33; display: flex; align-items: center; gap: 8px; }
         #msg-input { flex-grow: 1; background: #2a3942; padding: 12px 18px; border-radius: 25px; margin: 0; color: white; border: none; outline: none; }
 
-        /* FLOATING VIDEO BOX */
+        /* FIXED FLOATING VIDEO BOX */
         #video-container { display: none; position: absolute; top: 80px; right: 15px; width: 180px; height: 260px; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.6); border: 2px solid #00a884; z-index: 999; }
         #video-grid { display: flex; flex-direction: column; gap: 2px; width: 100%; height: 100%; }
         .video-box { position: relative; width: 100%; height: 50%; background: #222; }
@@ -43,30 +43,8 @@
         .v-btn { background: #202c33; border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .v-btn.end-call { background: #ea0038; }
 
-        /* REALTIME HEADER NOTIFICATION FIXED CSS */
-        #call-notification { 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            background: #00a884; 
-            padding: 18px 20px; 
-            z-index: 999999; 
-            display: flex;
-            justify-content: space-between; 
-            align-items: center; 
-            color: white; 
-            box-shadow: 0 8px 25px rgba(0,0,0,0.6); 
-            font-weight: bold; 
-            font-size: 16px; 
-            border-bottom: 3px solid #005c4b;
-            transform: translateY(-100%);
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        /* Call slide down trigger */
-        #call-notification.active {
-            transform: translateY(0);
-        }
+        /* ABSOLUTE FORCE HEADER NOTIFICATION PANEL */
+        #call-notification { display: none !important; position: absolute; top: 0; left: 0; width: 100%; background: #00a884; padding: 18px 20px; z-index: 999999; justify-content: space-between; align-items: center; color: white; box-shadow: 0 8px 25px rgba(0,0,0,0.6); font-weight: bold; font-size: 16px; border-bottom: 3px solid #005c4b; }
         .call-actions-btn { display: flex; gap: 12px; }
         .c-act { padding: 10px 22px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; }
         .c-accept { background: #ffffff; color: #00a884; }
@@ -84,6 +62,7 @@
     </div>
 
     <div id="chat-box">
+        <!-- HEADER CALL PANEL -->
         <div id="call-notification">
             <span id="caller-name">Incoming Call...</span>
             <div class="call-actions-btn">
@@ -211,6 +190,7 @@
         }
     }
 
+    // UNIQUE ABSOLUTE BYPASS FOR NOTIFICATION SLIDE OVERRIDE
     async function makeCall() {
         const stream = await initMedia();
         if (!stream) return;
@@ -239,17 +219,17 @@
             const panel = document.getElementById('call-notification');
             
             if (!data) {
-                panel.classList.remove('active');
+                panel.setAttribute('style', 'display: none !important');
                 return;
             }
 
             if (data.status === "ringing" && data.caller !== myName) {
                 document.getElementById('caller-name').innerText = `Call From: ${data.caller}`;
-                // CSS Trigger Class Add Kiye Bina Display Block Ki Problem Solve
-                panel.classList.add('active');
+                // FORCE INLINE RENDER STYLE BYPASSING ALL ENGINE CLIPPINGS
+                panel.setAttribute('style', 'display: flex !important');
 
                 document.getElementById('acceptCallBtn').onclick = async () => {
-                    panel.classList.remove('active');
+                    panel.setAttribute('style', 'display: none !important');
                     const stream = await initMedia();
                     if (!stream) return;
 
@@ -272,7 +252,7 @@
                 };
 
                 document.getElementById('rejectCallBtn').onclick = () => {
-                    panel.classList.remove('active');
+                    panel.setAttribute('style', 'display: none !important');
                     update(ref(db, `webrtc_call/${roomID}`), { status: "rejected" });
                 };
             }
@@ -298,7 +278,7 @@
         localStream = null; rtcPeerConnection = null;
         document.getElementById('video-container').style.display = 'none';
         document.getElementById('video-grid').innerHTML = '';
-        document.getElementById('call-notification').classList.remove('active');
+        document.getElementById('call-notification').setAttribute('style', 'display: none !important');
         remove(ref(db, `webrtc_call/${roomID}`));
     }
 
