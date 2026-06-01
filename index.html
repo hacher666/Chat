@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vibe Chat | Live WebRTC Audio & Push Alerts</title>
+    <title>Vibe Chat | Live WebRTC Video & Push Alerts</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0b141a; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -17,7 +17,7 @@
         .btn-join { width: 100%; padding: 14px; border: none; border-radius: 10px; background: #00a884; color: white; font-weight: bold; cursor: pointer; font-size: 16px; }
 
         /* Chat Window UI */
-        #chat-box { display: none; flex-direction: column; height: 100%; }
+        #chat-box { display: none; flex-direction: column; height: 100%; position: relative; }
         .chat-header { padding: 15px; background: #202c33; color: white; display: flex; align-items: center; justify-content: space-between; z-index: 10; position: relative; }
         .header-info { display: flex; align-items: center; gap: 12px; max-width: 70%; }
         
@@ -55,7 +55,19 @@
         .c-accept { background: #fff; color: #00a884; }
         .c-reject { background: #ea0038; color: white; }
         .c-mute { background: rgba(255, 255, 255, 0.2); color: white; font-size: 16px; width: 36px; height: 36px; border-radius: 50%; padding: 0; }
+        .c-video { background: rgba(255, 255, 255, 0.2); color: white; font-size: 16px; width: 36px; height: 36px; border-radius: 50%; padding: 0; }
+        .c-flip { background: #34b7f1; color: white; font-size: 16px; width: 36px; height: 36px; border-radius: 50%; padding: 0; display: none; }
         .c-end { background: #ea0038; color: white; font-size: 16px; width: 36px; height: 36px; border-radius: 50%; padding: 0; }
+
+        /* REALTIME DYNAMIC VIDEO CALL WINDOWS */
+        #video-grid { display: none; position: absolute; top: 75px; left: 10px; right: 10px; bottom: 70px; background: rgba(11, 20, 26, 0.95); z-index: 999; border-radius: 12px; overflow: hidden; flex-direction: column; gap: 10px; padding: 10px; }
+        .video-box { width: 100%; height: 50%; background: #202c33; border-radius: 10px; overflow: hidden; position: relative; border: 1px solid #3b4a54; }
+        .video-box video { width: 100%; height: 100%; object-fit: cover; }
+        .video-label { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; }
+        
+        /* Local floating mini window arrangement */
+        #local-video-box { height: 40%; }
+        #remote-video-box { height: 60%; }
     </style>
 </head>
 <body>
@@ -69,6 +81,17 @@
     </div>
 
     <div id="chat-box">
+        <div id="video-grid">
+            <div class="video-box" id="remote-video-box">
+                <video id="remoteVideo" autoplay playsinline></video>
+                <div class="video-label" id="remote-user-label">Remote User</div>
+            </div>
+            <div class="video-box" id="local-video-box">
+                <video id="localVideo" autoplay playsinline muted></video>
+                <div class="video-label">You</div>
+            </div>
+        </div>
+
         <div id="call-notification">
             <span id="caller-name">Incoming Call...</span>
             <div class="call-actions-btn" id="call-controls-wrapper">
@@ -125,6 +148,8 @@
     let localStream = null;
     let rtcPeerConnection = null; 
     let isMuted = false;
+    let isVideoOn = false;
+    let currentFacingMode = "user"; // Front camera by default
     let callTimerInterval = null;
 
     let mediaRecorder = null;
@@ -324,7 +349,7 @@
         }, 15000);
     }
 
-    // 🎙️ WEBRTC PURE AUDIO ENGINE PIPELINE
+    // 🎙️ WEBRTC VIDEO/AUDIO STREAM ENGINE PIPELINE
     async function initAudioStream() {
         if (!localStream) {
             try {
@@ -359,6 +384,8 @@
         const wrapper = document.getElementById('call-controls-wrapper');
         wrapper.innerHTML = `
             <button class="c-act c-mute" id="headerMuteBtn">🎤</button>
+            <button class="c-act c-video" id="headerVideoBtn">📹</button>
+            <button class="c-act c-flip" id="headerFlipBtn">🔄</button>
             <button class="c-act c-end" id="headerEndCallBtn">📞</button>
         `;
         
@@ -370,11 +397,87 @@
             }
         };
 
+        // Video Toggle Feature Code Block
+        document.getElementById('headerVideoBtn').onclick = async () => {
+            if (!isVideoOn) {
+                try {
+                    const videoStream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: currentFacingMode },
+                        audio: false
+                    });
+                    const videoTrack = videoStream.getVideoTracks()[0];
+                    localStream.addTrack(videoTrack);
+                    
+                    document.getElementById('localVideo').srcObject = new MediaStream([videoTrack]);
+                    
+                    if(rtcPeerConnection) {
+                        const senders = rtcPeerConnection.getSenders();
+                        const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+                        if(videoSender) {
+                            videoSender.replaceTrack(videoTrack);
+                        } else {
+                            rtcPeerConnection.addTrack(videoTrack, localStream);
+                            // Renegotiate track attachment
+                            const offer = await rtcPeerConnection.createOffer();
+                            await rtcPeerConnection.setLocalDescription(offer);
+                            update(getCallRef(), { offer: { type: offer.type, sdp: offer.sdp } });
+                        }
+                    }
+                    
+                    isVideoOn = true;
+                    document.getElementById('headerVideoBtn').style.background = "#00a884";
+                    document.getElementById('video-grid').style.display = 'flex';
+                    document.getElementById('headerFlipBtn').style.display = 'block'; // Show Flip Camera button
+                } catch(e) {
+                    alert("Camera device access denied!");
+                }
+            } else {
+                // Stop camera track pipeline
+                localStream.getVideoTracks().forEach(track => {
+                    track.stop();
+                    localStream.removeTrack(track);
+                });
+                document.getElementById('localVideo').srcObject = null;
+                isVideoOn = false;
+                document.getElementById('headerVideoBtn').style.background = "rgba(255, 255, 255, 0.2)";
+                document.getElementById('video-grid').style.display = 'none';
+                document.getElementById('headerFlipBtn').style.display = 'none'; // Hide Flip Camera button
+            }
+        };
+
+        // Flip Camera Feature Code Block
+        document.getElementById('headerFlipBtn').onclick = async () => {
+            if (!isVideoOn) return;
+            currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+            
+            localStream.getVideoTracks().forEach(track => {
+                track.stop();
+                localStream.removeTrack(track);
+            });
+
+            try {
+                const newVideoStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: currentFacingMode },
+                    audio: false
+                });
+                const newVideoTrack = newVideoStream.getVideoTracks()[0];
+                localStream.addTrack(newVideoTrack);
+                document.getElementById('localVideo').srcObject = new MediaStream([newVideoTrack]);
+                
+                if (rtcPeerConnection) {
+                    const senders = rtcPeerConnection.getSenders();
+                    const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+                    if (videoSender) videoSender.replaceTrack(newVideoTrack);
+                }
+            } catch (err) {
+                console.error("Failed to switch camera: ", err);
+            }
+        };
+
         document.getElementById('headerEndCallBtn').onclick = closeWebRTCCall;
     }
 
     async function makeCall() {
-        // Fix: Removed async await block loop of remove node
         remove(getCallRef());
         
         const stream = await initAudioStream();
@@ -391,14 +494,19 @@
         stream.getTracks().forEach(track => rtcPeerConnection.addTrack(track, stream));
 
         rtcPeerConnection.ontrack = (event) => {
-            let remoteAudio = document.getElementById('remoteAudioPlayer');
-            if(!remoteAudio) {
-                remoteAudio = document.createElement('audio');
-                remoteAudio.id = 'remoteAudioPlayer';
-                remoteAudio.autoplay = true;
-                document.body.appendChild(remoteAudio);
+            if (event.track.kind === 'video') {
+                document.getElementById('video-grid').style.display = 'flex';
+                document.getElementById('remoteVideo').srcObject = event.streams[0];
+            } else {
+                let remoteAudio = document.getElementById('remoteAudioPlayer');
+                if(!remoteAudio) {
+                    remoteAudio = document.createElement('audio');
+                    remoteAudio.id = 'remoteAudioPlayer';
+                    remoteAudio.autoplay = true;
+                    document.body.appendChild(remoteAudio);
+                }
+                remoteAudio.srcObject = event.streams[0];
             }
-            remoteAudio.srcObject = event.streams[0];
         };
 
         rtcPeerConnection.onicecandidate = (event) => {
@@ -420,6 +528,7 @@
 
     async function handleIncomingOffer(callData) {
         document.getElementById('caller-name').innerText = `Incoming Call: ${callData.caller}`;
+        document.getElementById('remote-user-label').innerText = callData.caller;
         const wrapper = document.getElementById('call-controls-wrapper');
         wrapper.innerHTML = `
             <button class="c-act c-accept" id="acceptCallBtn">Accept</button>
@@ -439,14 +548,19 @@
             stream.getTracks().forEach(track => rtcPeerConnection.addTrack(track, stream));
 
             rtcPeerConnection.ontrack = (event) => {
-                let remoteAudio = document.getElementById('remoteAudioPlayer');
-                if(!remoteAudio) {
-                    remoteAudio = document.createElement('audio');
-                    remoteAudio.id = 'remoteAudioPlayer';
-                    remoteAudio.autoplay = true;
-                    document.body.appendChild(remoteAudio);
+                if (event.track.kind === 'video') {
+                    document.getElementById('video-grid').style.display = 'flex';
+                    document.getElementById('remoteVideo').srcObject = event.streams[0];
+                } else {
+                    let remoteAudio = document.getElementById('remoteAudioPlayer');
+                    if(!remoteAudio) {
+                        remoteAudio = document.createElement('audio');
+                        remoteAudio.id = 'remoteAudioPlayer';
+                        remoteAudio.autoplay = true;
+                        document.body.appendChild(remoteAudio);
+                    }
+                    remoteAudio.srcObject = event.streams[0];
                 }
-                remoteAudio.srcObject = event.streams[0];
             };
 
             rtcPeerConnection.onicecandidate = (event) => {
@@ -494,7 +608,16 @@
                 }
             } 
             
-            // Candidate dynamic injection bug fixed with active session state tracking
+            // Dynamic SDP renegotiation check for on-the-fly tracks injection
+            if(callData.status === "accepted" && callData.caller !== myName && callData.offer && rtcPeerConnection) {
+                if(rtcPeerConnection.signalingState === "stable") {
+                    await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
+                    const answer = await rtcPeerConnection.createAnswer();
+                    await rtcPeerConnection.setLocalDescription(answer);
+                    update(getCallRef(), { answer: { type: answer.type, sdp: answer.sdp } });
+                }
+            }
+
             if ((callData.status === "ringing" || callData.status === "accepted") && rtcPeerConnection && rtcPeerConnection.remoteDescription) {
                 const candidatesRef = ref(db, `webrtc_call/${roomID}/ice_candidates`);
                 onChildAdded(candidatesRef, (candSnap) => {
@@ -526,9 +649,15 @@
         
         const remoteAudio = document.getElementById('remoteAudioPlayer');
         if(remoteAudio) remoteAudio.remove();
+        
+        document.getElementById('localVideo').srcObject = null;
+        document.getElementById('remoteVideo').srcObject = null;
+        document.getElementById('video-grid').style.display = 'none';
 
         document.getElementById('call-notification').style.display = 'none';
         isMuted = false;
+        isVideoOn = false;
+        currentFacingMode = "user";
         
         remove(getCallRef());
     }
