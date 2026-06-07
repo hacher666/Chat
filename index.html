@@ -155,6 +155,10 @@
     let audioChunks = [];
     let isRecording = false;
 
+    // Ringtone Audio instance creation
+    const callRingtone = new Audio('ring.mp3');
+    callRingtone.loop = true;
+
     const iceConfig = { iceServers: [{ urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"] }] };
 
     document.getElementById('loginBtn').onclick = () => {
@@ -379,305 +383,225 @@
         else if(data.type === 'audio') htmlContent = `<audio src="${data.content}" controls></audio>`;
 
         let tickHtml = isMe ? `<span class="tick ${data.seen ? 'seen' : ''}">${data.seen ? '✔️✔️' : '✔️'}</span>` : '';
-        div.innerHTML = `<span class="msg-info">${isMe ? 'You' : data.user}</span>${htmlContent}<div class="msg-meta"><span>${data.time}</span>${tickHtml}</div>`;
+        div.innerHTML = `<span class="msg-info">${data.user}</span>${htmlContent}<div class="msg-meta"><span>${data.time}</span>${tickHtml}</div>`;
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
-        
-        startDeleteTimer(msgID);
     }
 
-    function startDeleteTimer(msgID) {
-        setTimeout(() => {
-            const el = document.getElementById(`msg-${msgID}`);
-            if (el) el.remove();
-            remove(ref(db, `chat_rooms/${roomID}/${msgID}`));
-        }, 15000);
-    }
-
-    async function initAudioStream() {
-        if (!localStream) {
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia({
-                    video: false,
-                    audio: true
-                });
-            } catch (err) {
-                console.error("Mic access denied: ", err);
-                alert("Could not access microphone.");
-            }
-        }
-        return localStream;
-    }
-
-    function getCallRef() { return ref(db, `webrtc_call/${roomID}`); }
-
-    function startCallTimer() {
-        if (callTimerInterval) clearInterval(callTimerInterval);
-        let seconds = 0;
-        const statusLabel = document.getElementById('caller-name');
-        
-        callTimerInterval = setInterval(() => {
-            seconds++;
-            let mins = Math.floor(seconds / 60).toString().padStart(2, '0');
-            let secs = (seconds % 60).toString().padStart(2, '0');
-            statusLabel.innerText = `On Call: ${mins}:${secs}`;
-        }, 1000);
-    }
-
-    function showActiveCallControls() {
-        const wrapper = document.getElementById('call-controls-wrapper');
-        wrapper.innerHTML = `
-            <button class="c-act c-mute" id="headerMuteBtn">🎤</button>
-            <button class="c-act c-video" id="headerVideoBtn">📹</button>
-            <button class="c-act c-flip" id="headerFlipBtn">🔄</button>
-            <button class="c-act c-end" id="headerEndCallBtn">📞</button>
-        `;
-        
-        document.getElementById('headerMuteBtn').onclick = () => {
-            if(localStream) {
-                isMuted = !isMuted;
-                localStream.getAudioTracks().forEach(track => track.enabled = !isMuted);
-                document.getElementById('headerMuteBtn').innerText = isMuted ? "🔇" : "🎤";
-                document.getElementById('headerMuteBtn').style.background = isMuted ? "#ea0038" : "rgba(255, 255, 255, 0.2)";
-            }
+    // Dynamic Engine Wallpaper system hooks
+    document.getElementById('wallpaper-input').onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            set(ref(db, `chat_rooms/${roomID}_wallpaper`), { img: event.target.result });
         };
+        reader.readAsDataURL(file);
+    };
 
-        document.getElementById('headerVideoBtn').onclick = async () => {
-            if (!isVideoOn) {
-                try {
-                    const videoStream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode: currentFacingMode },
-                        audio: false
-                    });
-                    const videoTrack = videoStream.getVideoTracks()[0];
-                    localStream.addTrack(videoTrack);
+    /* =========================================================================
+       WEBRTC REALTIME COMPLEX ENGINE INTEGRATION ENGINE
+       ========================================================================= */
+    function listenForWebRTCSignals() {
+        const callRef = ref(db, `webrtc_call/${roomID}`);
+        onValue(callRef, async (snapshot) => {
+            const session = snapshot.val();
+            if (!session) {
+                closeWebRTCCall();
+                return;
+            }
+
+            if (session.caller !== myName) {
+                if (session.type === 'offer' && !rtcPeerConnection) {
+                    document.getElementById('caller-name').innerText = `Incoming: ${session.caller}`;
+                    document.getElementById('call-notification').style.display = 'flex';
                     
-                    document.getElementById('localVideo').srcObject = new MediaStream([videoTrack]);
-                    
-                    if(rtcPeerConnection) {
-                        const senders = rtcPeerConnection.getSenders();
-                        const videoSender = senders.find(s => s.track && s.track.kind === 'video');
-                        if(videoSender) {
-                            videoSender.replaceTrack(videoTrack);
-                        } else {
-                            rtcPeerConnection.addTrack(videoTrack, localStream);
-                            const offer = await rtcPeerConnection.createOffer();
-                            await rtcPeerConnection.setLocalDescription(offer);
-                            update(getCallRef(), { offer: { type: offer.type, sdp: offer.sdp } });
-                        }
-                    }
-                    
-                    isVideoOn = true;
-                    document.getElementById('headerVideoBtn').style.background = "#00a884";
-                    document.getElementById('video-grid').style.display = 'flex';
-                    document.getElementById('headerFlipBtn').style.display = 'block'; 
-                } catch(e) {
-                    alert("Camera device access denied!");
+                    // Plays audio instantly upon receiving dynamic signature from network state
+                    callRingtone.play().catch(e => console.log("User interaction required for ringtone"));
+
+                    document.getElementById('acceptCallBtn').onclick = async () => {
+                        // Stop tone safely on accept
+                        callRingtone.pause();
+                        callRingtone.currentTime = 0;
+                        
+                        document.getElementById('call-notification').style.display = 'none';
+                        await initializeMediaPipeline();
+                        await setupRTCConnectionEndpoints();
+
+                        await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(session.sdp));
+                        const answer = await rtcPeerConnection.createAnswer();
+                        await rtcPeerConnection.setLocalDescription(answer);
+
+                        update(callRef, { type: 'answer', sdp: answer });
+                        document.getElementById('remote-user-label').innerText = session.caller;
+                        startCallTimerCounter();
+                    };
+
+                    document.getElementById('rejectCallBtn').onclick = () => {
+                        // Stop tone safely on reject
+                        callRingtone.pause();
+                        callRingtone.currentTime = 0;
+                        remove(callRef);
+                    };
+                } else if (session.type === 'answer' && rtcPeerConnection) {
+                    await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(session.sdp));
+                    startCallTimerCounter();
                 }
-            } else {
-                localStream.getVideoTracks().forEach(track => {
-                    track.stop();
-                    localStream.removeTrack(track);
-                });
-                document.getElementById('localVideo').srcObject = null;
-                isVideoOn = false;
-                document.getElementById('headerVideoBtn').style.background = "rgba(255, 255, 255, 0.2)";
-                document.getElementById('video-grid').style.display = 'none';
-                document.getElementById('headerFlipBtn').style.display = 'none'; 
-            }
-        };
 
-        document.getElementById('headerFlipBtn').onclick = async () => {
-            if (!isVideoOn) return;
-            currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
-            
-            localStream.getVideoTracks().forEach(track => {
-                track.stop();
-                localStream.removeTrack(track);
+                if (session.iceCandidate && rtcPeerConnection) {
+                    try {
+                        await rtcPeerConnection.addIceCandidate(new RTCIceCandidate(session.iceCandidate));
+                    } catch (e) { console.error(e); }
+                }
+            }
+        });
+    }
+
+    async function initializeMediaPipeline() {
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: currentFacingMode },
+                audio: true
             });
-
-            try {
-                const newVideoStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: currentFacingMode },
-                    audio: false
-                });
-                const newVideoTrack = newVideoStream.getVideoTracks()[0];
-                localStream.addTrack(newVideoTrack);
-                document.getElementById('localVideo').srcObject = new MediaStream([newVideoTrack]);
-                
-                if (rtcPeerConnection) {
-                    const senders = rtcPeerConnection.getSenders();
-                    const videoSender = senders.find(s => s.track && s.track.kind === 'video');
-                    if (videoSender) videoSender.replaceTrack(newVideoTrack);
-                }
-            } catch (err) {
-                console.error("Failed to switch camera: ", err);
-            }
-        };
-
-        document.getElementById('headerEndCallBtn').onclick = closeWebRTCCall;
+            document.getElementById('localVideo').srcObject = localStream;
+            document.getElementById('video-grid').style.display = 'flex';
+            isVideoOn = true;
+        } catch (err) {
+            alert("Camera/Microphone failure initialization error!");
+        }
     }
 
-    async function makeCall() {
-        remove(getCallRef());
-        
-        const stream = await initAudioStream();
-        if (!stream) return;
-
-        document.getElementById('caller-name').innerText = "Calling...";
-        const wrapper = document.getElementById('call-controls-wrapper');
-        wrapper.innerHTML = `<button class="c-act c-end" id="headerCancelCallBtn">📞</button>`;
-        document.getElementById('headerCancelCallBtn').onclick = closeWebRTCCall;
-        
-        document.getElementById('call-notification').style.display = 'flex';
-
+    async function setupRTCConnectionEndpoints() {
         rtcPeerConnection = new RTCPeerConnection(iceConfig);
-        stream.getTracks().forEach(track => rtcPeerConnection.addTrack(track, stream));
+        
+        localStream.getTracks().forEach(track => rtcPeerConnection.addTrack(track, localStream));
 
         rtcPeerConnection.ontrack = (event) => {
-            if (event.track.kind === 'video') {
-                document.getElementById('video-grid').style.display = 'flex';
-                document.getElementById('remoteVideo').srcObject = event.streams[0];
-            } else {
-                let remoteAudio = document.getElementById('remoteAudioPlayer');
-                if(!remoteAudio) {
-                    remoteAudio = document.createElement('audio');
-                    remoteAudio.id = 'remoteAudioPlayer';
-                    remoteAudio.autoplay = true;
-                    document.body.appendChild(remoteAudio);
-                }
-                remoteAudio.srcObject = event.streams[0];
-            }
+            document.getElementById('remoteVideo').srcObject = event.streams[0];
         };
 
         rtcPeerConnection.onicecandidate = (event) => {
             if (event.candidate) {
-                push(ref(db, `webrtc_call/${roomID}/ice_candidates`), event.candidate.toJSON());
+                update(ref(db, `webrtc_call/${roomID}`), { iceCandidate: event.candidate.toJSON() });
             }
         };
+    }
+
+    document.getElementById('startCallBtn').onclick = async () => {
+        await initializeMediaPipeline();
+        await setupRTCConnectionEndpoints();
 
         const offer = await rtcPeerConnection.createOffer();
         await rtcPeerConnection.setLocalDescription(offer);
-        
-        set(getCallRef(), {
-            caller: myName,
-            offer: { type: offer.type, sdp: offer.sdp },
-            status: "ringing",
-            timestamp: Date.now()
-        });
-    }
 
-    async function handleIncomingOffer(callData) {
-        document.getElementById('caller-name').innerText = `Incoming Call: ${callData.caller}`;
-        document.getElementById('remote-user-label').innerText = callData.caller;
+        set(ref(db, `webrtc_call/${roomID}`), {
+            caller: myName, type: 'offer', sdp: offer
+        });
+
+        transformInterfaceToActiveCallPanel();
+    };
+
+    function transformInterfaceToActiveCallPanel() {
         const wrapper = document.getElementById('call-controls-wrapper');
-        wrapper.innerHTML = `
-            <button class="c-act c-accept" id="acceptCallBtn">Accept</button>
-            <button class="c-act c-reject" id="rejectCallBtn">Reject</button>
-        `;
-        
+        document.getElementById('caller-name').innerText = "Calling User...";
         document.getElementById('call-notification').style.display = 'flex';
 
-        document.getElementById('acceptCallBtn').onclick = async () => {
-            const stream = await initAudioStream();
-            if(!stream) return;
+        wrapper.innerHTML = `
+            <button class="c-act c-mute" id="action-mute">🎙️</button>
+            <button class="c-act c-video" id="action-video">📹</button>
+            <button class="c-act c-flip" id="action-flip" style="display:block;">🔄</button>
+            <button class="c-act c-end" id="action-end">❌</button>
+        `;
 
-            showActiveCallControls();
-            startCallTimer();
-
-            rtcPeerConnection = new RTCPeerConnection(iceConfig);
-            stream.getTracks().forEach(track => rtcPeerConnection.addTrack(track, stream));
-
-            rtcPeerConnection.ontrack = (event) => {
-                if (event.track.kind === 'video') {
-                    document.getElementById('video-grid').style.display = 'flex';
-                    document.getElementById('remoteVideo').srcObject = event.streams[0];
-                } else {
-                    let remoteAudio = document.getElementById('remoteAudioPlayer');
-                    if(!remoteAudio) {
-                        remoteAudio = document.createElement('audio');
-                        remoteAudio.id = 'remoteAudioPlayer';
-                        remoteAudio.autoplay = true;
-                        document.body.appendChild(remoteAudio);
-                    }
-                    remoteAudio.srcObject = event.streams[0];
-                }
-            };
-
-            rtcPeerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    push(ref(db, `webrtc_call/${roomID}/ice_candidates`), event.candidate.toJSON());
-                }
-            };
-
-            await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
-            const answer = await rtcPeerConnection.createAnswer();
-            await rtcPeerConnection.setLocalDescription(answer);
-
-            update(getCallRef(), {
-                answer: { type: answer.type, sdp: answer.sdp },
-                status: "accepted"
-            });
+        document.getElementById('action-mute').onclick = () => {
+            isMuted = !isMuted;
+            localStream.getAudioTracks()[0].enabled = !isMuted;
+            document.getElementById('action-mute').style.background = isMuted ? '#ea0038' : 'rgba(255, 255, 255, 0.2)';
         };
 
-        document.getElementById('rejectCallBtn').onclick = () => {
-            document.getElementById('call-notification').style.display = 'none';
-            update(getCallRef(), { status: "rejected" });
-            setTimeout(() => remove(getCallRef()), 300);
+        document.getElementById('action-video').onclick = () => {
+            isVideoOn = !isVideoOn;
+            localStream.getVideoTracks()[0].enabled = isVideoOn;
+            document.getElementById('action-video').style.background = isVideoOn ? 'rgba(255, 255, 255, 0.2)' : '#ea0038';
+        };
+
+        document.getElementById('action-flip').onclick = async () => {
+            currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+            if (localStream) {
+                localStream.getTracks().forEach(t => t.stop());
+            }
+            await initializeMediaPipeline();
+            const videoSender = rtcPeerConnection.getSenders().find(s => s.track.kind === 'video');
+            if (videoSender) {
+                videoSender.replaceTrack(localStream.getVideoTracks()[0]);
+            }
+        };
+
+        document.getElementById('action-end').onclick = () => {
+            remove(ref(db, `webrtc_call/${roomID}`));
         };
     }
 
-    function listenForWebRTCSignals() {
-        onValue(getCallRef(), async (snapshot) => {
-            const callData = snapshot.val();
-            
-            if (!callData) {
-                if (document.getElementById('call-notification').style.display === 'flex' && !callTimerInterval) {
-                    document.getElementById('call-notification').style.display = 'none';
-                }
-                return;
-            }
+    function startCallTimerCounter() {
+        clearInterval(callTimerInterval);
+        let seconds = 0;
+        
+        // Rebuild call management layout frame mapping for answered states safely 
+        const wrapper = document.getElementById('call-controls-wrapper');
+        wrapper.innerHTML = `
+            <button class="c-act c-mute" id="action-mute">🎙️</button>
+            <button class="c-act c-video" id="action-video">📹</button>
+            <button class="c-act c-flip" id="action-flip" style="display:block;">🔄</button>
+            <button class="c-act c-end" id="action-end">❌</button>
+        `;
 
-            if (callData.status === "ringing" && callData.caller !== myName) {
-                handleIncomingOffer(callData);
-            } 
-            else if (callData.status === "accepted" && callData.caller === myName && callData.answer && rtcPeerConnection) {
-                if(rtcPeerConnection.signalingState === "have-local-offer") {
-                    await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(callData.answer));
-                    showActiveCallControls();
-                    startCallTimer();
-                }
-            } 
-            
-            if(callData.status === "accepted" && callData.caller !== myName && callData.offer && rtcPeerConnection) {
-                if(rtcPeerConnection.signalingState === "stable") {
-                    await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
-                    const answer = await rtcPeerConnection.createAnswer();
-                    await rtcPeerConnection.setLocalDescription(answer);
-                    update(getCallRef(), { answer: { type: answer.type, sdp: answer.sdp } });
-                }
-            }
+        document.getElementById('call-notification').style.display = 'flex';
 
-            if ((callData.status === "ringing" || callData.status === "accepted") && rtcPeerConnection && rtcPeerConnection.remoteDescription) {
-                const candidatesRef = ref(db, `webrtc_call/${roomID}/ice_candidates`);
-                onChildAdded(candidatesRef, (candSnap) => {
-                    if (rtcPeerConnection && rtcPeerConnection.remoteDescription) {
-                        rtcPeerConnection.addIceCandidate(new RTCIceCandidate(candSnap.val())).catch(e => {});
-                    }
-                });
-            }
+        document.getElementById('action-mute').onclick = () => {
+            isMuted = !isMuted;
+            localStream.getAudioTracks()[0].enabled = !isMuted;
+            document.getElementById('action-mute').style.background = isMuted ? '#ea0038' : 'rgba(255, 255, 255, 0.2)';
+        };
 
-            if (callData.status === "rejected" || callData.status === "ended") {
-                closeWebRTCCall();
+        document.getElementById('action-video').onclick = () => {
+            isVideoOn = !isVideoOn;
+            localStream.getVideoTracks()[0].enabled = isVideoOn;
+            document.getElementById('action-video').style.background = isVideoOn ? 'rgba(255, 255, 255, 0.2)' : '#ea0038';
+        };
+
+        document.getElementById('action-flip').onclick = async () => {
+            currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+            if (localStream) {
+                localStream.getTracks().forEach(t => t.stop());
             }
-        });
+            await initializeMediaPipeline();
+            const videoSender = rtcPeerConnection.getSenders().find(s => s.track.kind === 'video');
+            if (videoSender) {
+                videoSender.replaceTrack(localStream.getVideoTracks()[0]);
+            }
+        };
+
+        document.getElementById('action-end').onclick = () => {
+            remove(ref(db, `webrtc_call/${roomID}`));
+        };
+
+        callTimerInterval = setInterval(() => {
+            seconds++;
+            let mins = Math.floor(seconds / 60);
+            let secs = seconds % 60;
+            document.getElementById('caller-name').innerText = `Active Call: ${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }, 1000);
     }
 
     function closeWebRTCCall() {
-        if (callTimerInterval) {
-            clearInterval(callTimerInterval);
-            callTimerInterval = null;
-        }
+        // Ensures tone stops playing if room signal changes abruptly or terminates
+        callRingtone.pause();
+        callRingtone.currentTime = 0;
+
+        clearInterval(callTimerInterval);
+        document.getElementById('call-notification').style.display = 'none';
+        document.getElementById('video-grid').style.display = 'none';
+        
         if (localStream) {
             localStream.getTracks().forEach(track => track.stop());
             localStream = null;
@@ -686,24 +610,16 @@
             rtcPeerConnection.close();
             rtcPeerConnection = null;
         }
-        
-        const remoteAudio = document.getElementById('remoteAudioPlayer');
-        if(remoteAudio) remoteAudio.remove();
-        
-        document.getElementById('localVideo').srcObject = null;
-        document.getElementById('remoteVideo').srcObject = null;
-        document.getElementById('video-grid').style.display = 'none';
 
-        document.getElementById('call-notification').style.display = 'none';
-        isMuted = false;
-        isVideoOn = false;
-        currentFacingMode = "user";
-        
-        remove(getCallRef());
+        const wrapper = document.getElementById('call-controls-wrapper');
+        if(wrapper) {
+            wrapper.innerHTML = `
+                <button class="c-act c-accept" id="acceptCallBtn">Accept</button>
+                <button class="c-act c-reject" id="rejectCallBtn">Reject</button>
+            `;
+        }
+        isMuted = false; isVideoOn = false; currentFacingMode = "user";
     }
-
-    document.getElementById('startCallBtn').onclick = makeCall;
 </script>
-
 </body>
 </html>
